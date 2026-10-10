@@ -109,11 +109,12 @@ body {
 }
 
 #action-bar { display: flex; flex-direction: column; border-top: 2px solid var(--border); }
-#action-bar input { font: inherit; border: 0; outline: none; background: var(--input); }
-#action-bar input:disabled { opacity: 0.45; }
-#say-input { padding: 7px 12px; font-size: 12px; color: #d8b8e8; border-bottom: 1px solid var(--border); }
+#action-bar textarea { display: block; font: inherit; border: 0; outline: none; background: var(--input); resize: none; overflow-y: auto; }
+#action-bar textarea:disabled { opacity: 0.45; }
+/* Each field grows with its text up to four lines: 4 x line height + vertical padding */
+#say-input { width: 100%; padding: 7px 12px; font-size: 12px; line-height: 18px; max-height: calc(4 * 18px + 14px); color: #d8b8e8; border-bottom: 1px solid var(--border); }
 #do-row { display: flex; }
-#do-input { flex: 1; padding: 10px 12px; color: var(--text); }
+#do-input { flex: 1; padding: 10px 12px; line-height: 21px; max-height: calc(4 * 21px + 20px); color: var(--text); }
 #act-button { padding: 0 16px; font: inherit; color: var(--gold); background: var(--border); border: 0; cursor: pointer; }
 
 /* Character creation */

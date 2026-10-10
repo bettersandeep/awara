@@ -1,0 +1,160 @@
+# Awara play guide
+
+Awara is a pixel-art tabletop adventure with the d20 SRD 3.5 rules.
+You play one hero.
+Three Claude agents play your companions, and one more Claude agent is the narrator who runs the world.
+The narrator draws every place on the board and reads the story aloud.
+
+## Start the game
+
+1. Install Node.js 24 or later.
+2. Log in to Claude Code on this computer.
+   The agents use that login, so you do not need an API key.
+3. In the project folder, run:
+
+   ```sh
+   npm install
+   npm start
+   ```
+
+4. Open http://localhost:8420 in Chrome.
+
+The first start downloads the speech model (about 90 MB).
+After that, the game starts in a few seconds.
+
+## Create your character
+
+![Character creation: a name, eleven classes and ten openings](screenshots/01-character-creation.png)
+
+1. Type a name for your hero.
+2. Select a class.
+   Each card tells you what the class is good at.
+3. Select an opening, or select **Surprise me**.
+4. Click **Enter the world**.
+
+The classes have four roles.
+Your three companions fill the roles that you did not take, so the party always has a front line, a skirmisher, a spellcaster and a healer.
+The companions change for each adventure.
+
+| Role | Classes | Good at |
+| --- | --- | --- |
+| Martial | Fighter, Barbarian, Paladin, Monk | Holding the front line and hitting hard |
+| Skirmish | Rogue, Ranger, Bard | Scouting, archery, locks, traps and talking |
+| Arcane | Wizard, Sorcerer | Magic missile, which always hits |
+| Divine | Cleric, Druid | Healing with cure light wounds |
+
+The openings borrow from great stories: The Tempest, Macbeth, Beowulf, Hamlet, A Midsummer Night's Dream, The Canterbury Tales, Faust, The Odyssey and Dracula.
+The narrator writes the rest of the plot while you play.
+
+## The table
+
+![The table: the board in the center, the seats around it, and the story on the right](screenshots/02-the-table.png)
+
+- **The board** in the center shows the current place.
+  Every person and creature that the story mentions is on the board, with a name tag.
+  Gold tags are your party, and red tags are everyone else.
+- **The seats** around the board show the table.
+  The narrator sits at the top, your companions sit at the sides, and you sit at the bottom.
+  A seat glows while that voice speaks.
+- **The side panel** on the right shows the place name, your quest (the ⚑ line) and the story.
+- **How this works** opens a short summary of the rules.
+
+## Play a round
+
+![Writing a round: what you say on top, what you do below, and the act button](screenshots/03-writing-a-round.png)
+
+Each round has three steps:
+
+1. **You declare.**
+   Write what your hero says in the 💬 field (you can leave it empty).
+   Write what your hero does in the ⚔ field.
+   Press Enter or click **act**.
+   To start a new line in a field, press Shift+Enter.
+2. **Your companions declare.**
+   Each companion decides what to say and do.
+   Their lines appear in the story with their names.
+3. **The narrator resolves.**
+   The narrator rolls the dice, moves everyone on the board, and tells you what happens.
+   The narration ends with what you can do next.
+
+While a round runs, the input fields lock and show a timer.
+A round usually takes 30 to 90 seconds.
+The first scene can take a little longer.
+
+Good actions are concrete:
+
+- "I ask the innkeeper who saw the caravan last."
+- "I climb onto the cart and shoot at the nearest goblin."
+- "I search the altar for hidden writing."
+
+You can do anything that your hero could try.
+You can also talk to your companions; they hear you.
+
+## Dice and rules
+
+![Combat: the blue dice lines show a magic missile and an attack roll, and the creature lies at the door](screenshots/04-combat.png)
+
+The game uses the d20 SRD 3.5 rules.
+The rules engine rolls every die; the AI agents never decide a result without a roll.
+Every roll appears in the story as a blue 🎲 line, for example `Rowan attacks Drowned Aldo with longsword: d20(18)+4=22 vs AC 11 - hit for 8`.
+
+- **Attack:** d20 + attack bonus against the target's armor class (AC).
+  A natural 20 always hits, and a natural 1 always misses.
+  A roll in the weapon's threat range can be a critical hit, which multiplies the damage.
+- **Skill check:** d20 + skill and ability bonus against a difficulty class (DC).
+- **Saving throw:** d20 + Fortitude, Reflex or Will bonus against a DC.
+- **Initiative:** at the start of a fight, everyone rolls to set the turn order.
+- **Spells:** casters have spell slots for the day.
+  Magic missile always hits; cure light wounds heals.
+- **Hit points:** at 0 hp a character is disabled, below 0 dying, and at -10 dead.
+
+Hit points, AC and spell slots are on each seat card.
+
+## Listen to the story
+
+![The story log while a line is spoken: the current phrase is highlighted](screenshots/05-story-log.png)
+
+- Click 🔇 at the top of the side panel to turn on the voice.
+  It changes to 🔊, and new lines then play by themselves.
+- Click ▶ after any line to hear it again.
+- While a line plays, the phrase that is spoken is highlighted.
+- Each person who speaks in the narration has a gold label and their own voice.
+- Grey tags are voice cues, for example *pause*, *whisper* or *slowly*.
+  The voice obeys them.
+- Words in *italics* are spoken with emphasis.
+- A name with a dotted underline shows its pronunciation when you hover over it.
+
+The voice runs on your computer, so the speech can arrive a few seconds after the text.
+
+## Seats, models and voices
+
+![A seat card: hit points, armor class, powers, model and voice](screenshots/06-seat-card.png)
+
+Each seat has two menus:
+
+- **model:** which Claude model plays this seat.
+  The narrator uses Opus 5.5, and the companions use Haiku 5.5.
+  You can change any seat to Haiku 5.5, Sonnet 5.5 or Opus 5.5 at any time.
+  Faster models make faster rounds; stronger models write richer stories.
+- **voice:** which voice reads this character's lines.
+
+A change applies from the next turn.
+
+## Tips
+
+- Read the last lines of the narration: they list the choices that the narrator expects.
+- Use your class: a rogue scouts and opens locks, a cleric heals, a bard talks.
+- Ask people questions.
+  The world has more to tell than the first scene shows.
+- Keep each action to one or two sentences.
+  Long plans take longer to resolve.
+
+## Problems
+
+| What you see | What to do |
+| --- | --- |
+| "reconnecting..." at the top | The page reconnects by itself when the server is back. The story comes back too. |
+| The board stays empty after the first scene | Wait for the round to end. The narrator gets one more turn to draw the scene. |
+| No sound | Click 🔇 once. Browsers block sound until you click on the page. |
+| "The narrator timed out" | Send your action again. |
+| A new game after a server restart | The game is not saved yet. A restart starts a new adventure. |

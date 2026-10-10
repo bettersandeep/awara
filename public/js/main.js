@@ -89,13 +89,34 @@ function connect() {
   };
 }
 
-document.getElementById("action-bar").onsubmit = (event) => {
+const actionBar = document.getElementById("action-bar");
+
+// The fields grow with the text (style.css caps them at four lines), so a long
+// action stays readable while you type.
+function fitToText(field) {
+  field.style.height = "auto";
+  field.style.height = `${field.scrollHeight}px`;
+}
+
+for (const field of [sayInput, doInput]) {
+  field.addEventListener("input", () => fitToText(field));
+  // Enter sends the round; Shift+Enter starts a new line.
+  field.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    actionBar.requestSubmit();
+  });
+}
+
+actionBar.onsubmit = (event) => {
   event.preventDefault();
   const action = doInput.value.trim();
   const dialogue = sayInput.value.trim();
   if (doInput.disabled || (!action && !dialogue)) return;
   send({ type: "action", do: action, say: dialogue });
   doInput.value = sayInput.value = "";
+  fitToText(doInput);
+  fitToText(sayInput);
 };
 
 speechToggle.onclick = () => {
