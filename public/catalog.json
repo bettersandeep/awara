@@ -1,0 +1,247 @@
+{
+  "tileSize": 32,
+  "tiles": {
+    "floor.stone": {
+      "file": "tiles/floor_stone.png",
+      "walkable": true
+    },
+    "floor.dirt": {
+      "file": "tiles/floor_dirt.png",
+      "walkable": true
+    },
+    "floor.grass": {
+      "file": "tiles/floor_grass.png",
+      "walkable": true
+    },
+    "floor.marble": {
+      "file": "tiles/floor_marble.png",
+      "walkable": true
+    },
+    "floor.sand": {
+      "file": "tiles/floor_sand.png",
+      "walkable": true
+    },
+    "floor.wood": {
+      "file": "tiles/floor_wood.png",
+      "walkable": true
+    },
+    "water.shallow": {
+      "file": "tiles/water_shallow.png",
+      "walkable": true
+    },
+    "water.deep": {
+      "file": "tiles/water_deep.png",
+      "walkable": false
+    },
+    "wall.brick": {
+      "file": "tiles/wall_brick.png",
+      "walkable": false
+    },
+    "wall.stone": {
+      "file": "tiles/wall_stone.png",
+      "walkable": false
+    },
+    "wall.dark": {
+      "file": "tiles/wall_dark.png",
+      "walkable": false
+    },
+    "wall.crystal": {
+      "file": "tiles/wall_crystal.png",
+      "walkable": false
+    },
+    "tree": {
+      "file": "tiles/tree.png",
+      "walkable": false
+    },
+    "floor.cobble": {
+      "file": "tiles/floor_cobble.png",
+      "walkable": true
+    },
+    "floor.swamp": {
+      "file": "tiles/floor_swamp.png",
+      "walkable": true
+    },
+    "floor.crystal": {
+      "file": "tiles/floor_crystal.png",
+      "walkable": true
+    }
+  },
+  "props": {
+    "door.closed": {
+      "file": "tiles/door_closed.png"
+    },
+    "door.open": {
+      "file": "tiles/door_open.png"
+    },
+    "stairs.down": {
+      "file": "tiles/stairs_down.png"
+    },
+    "stairs.up": {
+      "file": "tiles/stairs_up.png"
+    },
+    "torch": {
+      "file": "tiles/torch.png"
+    },
+    "fountain": {
+      "file": "tiles/fountain.png"
+    },
+    "statue": {
+      "file": "tiles/statue.png"
+    },
+    "altar": {
+      "file": "tiles/altar.png"
+    },
+    "column": {
+      "file": "tiles/column.png"
+    },
+    "corpse": {
+      "file": "tiles/corpse.png"
+    }
+  },
+  "sprites": {
+    "fighter": {
+      "file": "tiles/fighter.png"
+    },
+    "wizard": {
+      "file": "tiles/wizard.png"
+    },
+    "rogue": {
+      "file": "tiles/rogue.png"
+    },
+    "cleric": {
+      "file": "tiles/cleric.png"
+    },
+    "human": {
+      "file": "tiles/human.png"
+    },
+    "elf": {
+      "file": "tiles/elf.png"
+    },
+    "barbarian": {
+      "file": "tiles/barbarian.png"
+    },
+    "ranger": {
+      "file": "tiles/ranger.png"
+    },
+    "paladin": {
+      "file": "tiles/paladin.png"
+    },
+    "monk": {
+      "file": "tiles/monk.png"
+    },
+    "bard": {
+      "file": "tiles/bard.png"
+    },
+    "sorcerer": {
+      "file": "tiles/sorcerer.png"
+    },
+    "druid": {
+      "file": "tiles/druid.png"
+    },
+    "goblin": {
+      "file": "tiles/goblin.png"
+    },
+    "hobgoblin": {
+      "file": "tiles/hobgoblin.png"
+    },
+    "kobold": {
+      "file": "tiles/kobold.png"
+    },
+    "orc": {
+      "file": "tiles/orc.png"
+    },
+    "orc_warrior": {
+      "file": "tiles/orc_warrior.png"
+    },
+    "gnoll": {
+      "file": "tiles/gnoll.png"
+    },
+    "ogre": {
+      "file": "tiles/ogre.png"
+    },
+    "troll": {
+      "file": "tiles/troll.png"
+    },
+    "necromancer": {
+      "file": "tiles/necromancer.png"
+    },
+    "wolf": {
+      "file": "tiles/wolf.png"
+    },
+    "rat": {
+      "file": "tiles/rat.png"
+    },
+    "bat": {
+      "file": "tiles/bat.png"
+    },
+    "snake": {
+      "file": "tiles/snake.png"
+    },
+    "spider": {
+      "file": "tiles/spider.png"
+    },
+    "bear": {
+      "file": "tiles/bear.png"
+    },
+    "skeleton": {
+      "file": "tiles/skeleton.png"
+    },
+    "ghost": {
+      "file": "tiles/ghost.png"
+    },
+    "dragon": {
+      "file": "tiles/dragon.png"
+    },
+    "hill_giant": {
+      "file": "tiles/hill_giant.png"
+    },
+    "imp": {
+      "file": "tiles/imp.png"
+    },
+    "demon": {
+      "file": "tiles/demon.png"
+    },
+    "balrug": {
+      "file": "tiles/balrug.png"
+    },
+    "efreet": {
+      "file": "tiles/efreet.png"
+    },
+    "abomination": {
+      "file": "tiles/abomination.png"
+    },
+    "lich": {
+      "file": "tiles/lich.png"
+    },
+    "bone_dragon": {
+      "file": "tiles/bone_dragon.png"
+    },
+    "wraith": {
+      "file": "tiles/wraith.png"
+    },
+    "npc.man": {
+      "file": "tiles/npc_man.png"
+    },
+    "npc.woman": {
+      "file": "tiles/npc_woman.png"
+    },
+    "npc.elder": {
+      "file": "tiles/npc_elder.png"
+    },
+    "npc.guard": {
+      "file": "tiles/npc_guard.png"
+    },
+    "npc.merchant": {
+      "file": "tiles/npc_merchant.png"
+    },
+    "npc.noblewoman": {
+      "file": "tiles/npc_noblewoman.png"
+    },
+    "npc.hermit": {
+      "file": "tiles/npc_hermit.png"
+    },
+    "npc.witch": {
+      "file": "tiles/npc_witch.png"
+    }
+  }
+}

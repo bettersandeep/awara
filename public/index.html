@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Awara</title>
+  <link rel="icon" type="image/png" href="tiles/fighter.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="table">
+    <section class="seat" id="seat-narrator"></section>
+    <section class="seat" id="seat-companion-1"></section>
+    <section class="seat" id="seat-companion-2"></section>
+    <section class="seat" id="seat-companion-3"></section>
+    <section class="seat" id="seat-player"></section>
+    <div id="board-frame"><canvas id="board" hidden></canvas></div>
+  </main>
+
+  <aside id="side-panel">
+    <header id="panel-header">
+      <div id="map-name">connecting...</div>
+      <button id="speech-toggle" title="Read the story aloud">🔇</button>
+    </header>
+    <div id="objective"></div>
+    <details id="help">
+      <summary>how this works</summary>
+      <p>
+        You play the character in the <b>bottom seat</b>.
+        The other three seats are AI party members, and the narrator in the top seat is the dungeon master.
+        Write what your character does, and optionally what they say, then press enter.
+        Your companions declare their actions, then the narrator resolves the round.
+        The rules are d20 SRD 3.5: the engine rolls a d20, adds modifiers, and compares the total with a difficulty (DC) or an armor class (AC).
+        Blue 🎲 lines show every real roll.
+        Hit points and spell slots are on the seat cards, and each seat has its own model and voice.
+      </p>
+    </details>
+    <div id="story-log"></div>
+    <form id="action-bar">
+      <input id="say-input" placeholder="💬 say something (optional)" autocomplete="off" />
+      <div id="do-row">
+        <input id="do-input" placeholder="⚔ what do you do?" autocomplete="off" />
+        <button id="act-button">act</button>
+      </div>
+    </form>
+  </aside>
+
+  <div id="character-creation" hidden>
+    <div id="creation-box">
+      <h1>Create your character</h1>
+      <input id="player-name" placeholder="Your character's name" maxlength="24" />
+      <div class="card-grid" id="class-cards"></div>
+      <h1>Choose your opening</h1>
+      <div class="card-grid" id="scenario-cards"></div>
+      <button id="start-button">Enter the world</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
