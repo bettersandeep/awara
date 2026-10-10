@@ -5,6 +5,13 @@ You play one hero.
 Three Claude agents play your companions, and one more Claude agent is the narrator who runs the world.
 The narrator draws every place on the board and reads the story aloud.
 
+## Watch a game
+
+[![Click to watch an 85-second gameplay video with sound](screenshots/02-the-table.png)](video/awara-gameplay.mp4)
+
+Click the picture to watch a short game with sound: character creation, the opening scene, the spoken story with its highlight, one round, and a fight.
+The waits for the AI turns are sped up in the video.
+
 ## Start the game
 
 1. Install Node.js 24 or later.

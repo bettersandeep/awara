@@ -4,7 +4,7 @@ A pixel-art tabletop adventure that uses the d20 SRD 3.5 rules.
 You play one character.
 Claude agents play your three companions, and one more Claude agent is the narrator.
 
-New players: read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-step instructions.
+New players: watch the [gameplay video](docs/video/awara-gameplay.mp4) (85 seconds, with sound), then read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-step instructions.
 
 ## How it works
 
