@@ -225,11 +225,15 @@ export function createNarrator(host: NarratorHost, characters: Record<string, Ch
                 announcedWorldBuilding = true;
               }
             }
-            if (message.type === "result" && message.subtype !== "success") host.log(`narrator error: ${message.subtype}`, "system");
+            if (message.type === "result" && message.subtype !== "success") {
+              console.error("narrator result:", message.subtype, JSON.stringify(message).slice(0, 500));
+              host.log(`narrator error: ${message.subtype}`, "system");
+            }
           },
         });
       } catch (error) {
         if (!abortController.signal.aborted) throw error;
+        console.error(`narrator turn timed out after ${TURN_TIMEOUT_MS / 1000} s`);
         host.log("The narrator timed out. Try your action again.", "system");
       } finally {
         clearTimeout(timeout);

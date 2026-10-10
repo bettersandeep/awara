@@ -7,7 +7,7 @@ The narrator draws every place on the board and reads the story aloud.
 
 ## Watch a game
 
-[![Click to watch an 85-second gameplay video with sound](screenshots/02-the-table.png)](video/awara-gameplay.mp4)
+[![Click to watch a 79-second gameplay video with sound](screenshots/02-the-table.png)](video/awara-gameplay.mp4)
 
 Click the picture to watch a short game with sound: character creation, the opening scene, the spoken story with its highlight, one round, and a fight.
 The waits for the AI turns are sped up in the video.
@@ -60,6 +60,9 @@ The narrator writes the rest of the plot while you play.
 - **The board** in the center shows the current place.
   Every person and creature that the story mentions is on the board, with a name tag.
   Gold tags are your party, and red tags are everyone else.
+  A wounded character has an HP bar under its feet: green, then yellow, then red.
+  Torches and fires light the area around them; your party carries a little light too.
+  Click a character to make it your target; gold brackets mark it.
 - **The seats** around the board show the table.
   The narrator sits at the top, your companions sit at the sides, and you sit at the bottom.
   A seat glows while that voice speaks.
@@ -68,13 +71,13 @@ The narrator writes the rest of the plot while you play.
 
 ## Play a round
 
-![Writing a round: what you say on top, what you do below, and the act button](screenshots/03-writing-a-round.png)
+![Writing a round: the target, the quick-action buttons, what you say and what you do](screenshots/03-writing-a-round.png)
 
 Each round has three steps:
 
 1. **You declare.**
    Write what your hero says in the 💬 field (you can leave it empty).
-   Write what your hero does in the ⚔ field.
+   Write what your hero does in the ⚔️ field.
    Press Enter or click **act**.
    To start a new line in a field, press Shift+Enter.
 2. **Your companions declare.**
@@ -85,8 +88,20 @@ Each round has three steps:
    The narration ends with what you can do next.
 
 While a round runs, the input fields lock and show a timer.
-A round usually takes 30 to 90 seconds.
-The first scene can take a little longer.
+Each companion's line appears as soon as that companion decides.
+A round usually takes about a minute, and the first scene about 30 seconds.
+
+**Quick actions** save typing.
+Click a character on the board to target it, then click a button:
+
+| Button | It writes |
+| --- | --- |
+| ⚔️ Attack | "I attack (target)." or "I attack the nearest enemy." |
+| ✦ Cast | Magic missile for wizards, sorcerers and bards; cure light wounds for clerics and druids. Greyed out with no spell slots left. |
+| 🔍 Search | "I search the area carefully." |
+| 💬 Talk | "I talk to (target).", and the cursor moves to the 💬 field. |
+
+A button only writes the action; you can change it before you send it.
 
 Good actions are concrete:
 

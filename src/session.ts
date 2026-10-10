@@ -203,6 +203,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
     try {
       await work();
     } catch (error) {
+      console.error("narrator turn failed:", error);
       log(`The narrator failed: ${(error as Error).message}`, "system");
     } finally {
       roundInProgress = false;
