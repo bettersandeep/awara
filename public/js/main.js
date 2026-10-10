@@ -5,6 +5,7 @@ import { createSeats } from "./seats.js";
 import { createSpeech } from "./speech.js";
 import { createStoryLog } from "./storyLog.js";
 import { showCharacterCreation } from "./characterCreation.js";
+import { createQuickActions } from "./quickActions.js";
 
 const RECONNECT_DELAY_MS = 2000;
 
@@ -22,7 +23,7 @@ let busyTimer = null;
 
 const send = (message) => socket.send(JSON.stringify(message));
 
-const board = createBoard(document.getElementById("board"), catalog);
+const board = createBoard(document.getElementById("board"), catalog, { onSelectSprite: (sprite) => selectTarget(sprite) });
 const seats = createSeats({ catalog, onSeatChange: (seat, change) => send({ type: "seat", seat, ...change }) });
 const speech = createSpeech({
   onSpeakerChange: (speaker, isSpeaking) => seats.setSpeaking(speaker, isSpeaking),
@@ -33,13 +34,28 @@ const storyLog = createStoryLog(document.getElementById("story-log"), {
   onReplay: (audioId, speaker) => speech.playNow(audioId, speaker),
 });
 
+const quickActions = createQuickActions({
+  doInput,
+  sayInput,
+  onActionWritten: () => fitToText(doInput),
+  onClearTarget: () => selectTarget(null),
+});
+
+let targetId = null;
+function selectTarget(sprite) {
+  targetId = sprite?.id ?? null;
+  board.setSelected(targetId);
+  quickActions.setTarget(sprite);
+}
+
 function actionPrompt() {
   const player = party?.members.find((member) => member.isPlayer);
-  return player ? `⚔ what does ${player.name} do?` : "⚔ what do you do?";
+  return player ? `⚔️ what does ${player.name} do?` : "⚔️ what do you do?";
 }
 
 function setBusy(busy) {
   doInput.disabled = sayInput.disabled = busy;
+  quickActions.setBusy(busy);
   clearInterval(busyTimer);
   if (!busy) {
     doInput.placeholder = actionPrompt();
@@ -53,14 +69,18 @@ function setBusy(busy) {
 }
 
 const messageHandlers = {
-  world({ map }) {
-    board.showMap(map);
+  world({ map, health }) {
+    board.showMap(map, health);
+    // A target that left the board (or died) is no longer a target.
+    if (targetId && !map?.sprites.some((sprite) => sprite.id === targetId)) selectTarget(null);
     mapName.textContent = map ? map.name : "Awara";
   },
   party(message) {
     party = message;
     seats.render(party);
     board.setPartyIds(party.members.map((member) => member.id));
+    quickActions.setPlayer(party.members.find((member) => member.isPlayer));
+    quickActions.setBusy(doInput.disabled);
     if (!doInput.disabled) doInput.placeholder = actionPrompt();
   },
   log: (entry) => storyLog.add(entry),

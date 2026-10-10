@@ -1,7 +1,7 @@
 // The story log in the side panel. Spoken lines are drawn piece by piece, with
 // speaker labels, voice-cue tags, emphasis and pronunciation hints. While a line
 // plays, the piece being spoken is highlighted.
-const PREFIX_BY_KIND = { speech: "💬 ", intent: "⚔ ", dice: "🎲 " };
+const PREFIX_BY_KIND = { speech: "💬 ", intent: "⚔️ ", dice: "🎲 " };
 
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

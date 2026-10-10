@@ -114,9 +114,12 @@ test("skill checks and saves add the right bonuses", () => {
   assert.equal(save.total, save.roll + 2); // poor 0 + dex 2
 });
 
-test("initiative orders every combatant", () => {
-  const { order } = rollInitiative(makeRng(9), [fighter("a"), fighter("b"), wizard()]);
-  assert.deepEqual([...order].sort(), ["a", "b", "mira"]);
+test("initiative orders every combatant and logs names, not ids", () => {
+  const goblin = makeTestCharacter({ id: "skel1", name: "Drowned Housecarl", characterClass: "fighter" });
+  const { order, log } = rollInitiative(makeRng(9), [fighter("a"), wizard(), goblin]);
+  assert.deepEqual([...order].sort(), ["a", "mira", "skel1"]);
+  assert.match(log, /Drowned Housecarl \d+/);
+  assert.doesNotMatch(log, /skel1/);
 });
 
 test("life states follow hit points", () => {

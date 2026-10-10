@@ -2,100 +2,269 @@
   "tileSize": 32,
   "tiles": {
     "floor.stone": {
-      "file": "tiles/floor_stone.png",
+      "files": [
+        "tiles/floor_stone_0.png",
+        "tiles/floor_stone_1.png",
+        "tiles/floor_stone_2.png",
+        "tiles/floor_stone_3.png",
+        "tiles/floor_stone_4.png",
+        "tiles/floor_stone_5.png",
+        "tiles/floor_stone_6.png",
+        "tiles/floor_stone_7.png",
+        "tiles/floor_stone_8.png"
+      ],
       "walkable": true
     },
     "floor.dirt": {
-      "file": "tiles/floor_dirt.png",
+      "files": [
+        "tiles/floor_dirt_0.png",
+        "tiles/floor_dirt_1.png",
+        "tiles/floor_dirt_2.png"
+      ],
       "walkable": true
     },
     "floor.grass": {
-      "file": "tiles/floor_grass.png",
+      "files": [
+        "tiles/floor_grass_0.png",
+        "tiles/floor_grass_1.png",
+        "tiles/floor_grass_2.png",
+        "tiles/floor_grass_3.png",
+        "tiles/floor_grass_4.png",
+        "tiles/floor_grass_5.png"
+      ],
       "walkable": true
     },
     "floor.marble": {
-      "file": "tiles/floor_marble.png",
+      "files": [
+        "tiles/floor_marble_0.png",
+        "tiles/floor_marble_1.png",
+        "tiles/floor_marble_2.png",
+        "tiles/floor_marble_3.png",
+        "tiles/floor_marble_4.png",
+        "tiles/floor_marble_5.png"
+      ],
       "walkable": true
     },
     "floor.sand": {
-      "file": "tiles/floor_sand.png",
+      "files": [
+        "tiles/floor_sand_0.png",
+        "tiles/floor_sand_1.png",
+        "tiles/floor_sand_2.png",
+        "tiles/floor_sand_3.png",
+        "tiles/floor_sand_4.png",
+        "tiles/floor_sand_5.png",
+        "tiles/floor_sand_6.png",
+        "tiles/floor_sand_7.png",
+        "tiles/floor_sand_8.png",
+        "tiles/floor_sand_9.png"
+      ],
       "walkable": true
     },
     "floor.wood": {
-      "file": "tiles/floor_wood.png",
+      "files": [
+        "tiles/floor_wood_0.png",
+        "tiles/floor_wood_1.png",
+        "tiles/floor_wood_2.png",
+        "tiles/floor_wood_3.png"
+      ],
       "walkable": true
     },
-    "water.shallow": {
-      "file": "tiles/water_shallow.png",
+    "floor.slate": {
+      "files": [
+        "tiles/floor_slate_0.png",
+        "tiles/floor_slate_1.png",
+        "tiles/floor_slate_2.png",
+        "tiles/floor_slate_3.png"
+      ],
       "walkable": true
-    },
-    "water.deep": {
-      "file": "tiles/water_deep.png",
-      "walkable": false
-    },
-    "wall.brick": {
-      "file": "tiles/wall_brick.png",
-      "walkable": false
-    },
-    "wall.stone": {
-      "file": "tiles/wall_stone.png",
-      "walkable": false
-    },
-    "wall.dark": {
-      "file": "tiles/wall_dark.png",
-      "walkable": false
-    },
-    "wall.crystal": {
-      "file": "tiles/wall_crystal.png",
-      "walkable": false
-    },
-    "tree": {
-      "file": "tiles/tree.png",
-      "walkable": false
     },
     "floor.cobble": {
-      "file": "tiles/floor_cobble.png",
+      "files": [
+        "tiles/floor_cobble_0.png",
+        "tiles/floor_cobble_1.png",
+        "tiles/floor_cobble_2.png",
+        "tiles/floor_cobble_3.png",
+        "tiles/floor_cobble_4.png",
+        "tiles/floor_cobble_5.png",
+        "tiles/floor_cobble_6.png",
+        "tiles/floor_cobble_7.png"
+      ],
       "walkable": true
     },
     "floor.swamp": {
-      "file": "tiles/floor_swamp.png",
+      "files": [
+        "tiles/floor_swamp_0.png",
+        "tiles/floor_swamp_1.png",
+        "tiles/floor_swamp_2.png",
+        "tiles/floor_swamp_3.png"
+      ],
       "walkable": true
     },
     "floor.crystal": {
-      "file": "tiles/floor_crystal.png",
+      "files": [
+        "tiles/floor_crystal_0.png",
+        "tiles/floor_crystal_1.png",
+        "tiles/floor_crystal_2.png",
+        "tiles/floor_crystal_3.png",
+        "tiles/floor_crystal_4.png",
+        "tiles/floor_crystal_5.png"
+      ],
       "walkable": true
+    },
+    "water.shallow": {
+      "files": [
+        "tiles/water_shallow_0.png",
+        "tiles/water_shallow_1.png"
+      ],
+      "walkable": true
+    },
+    "water.deep": {
+      "files": [
+        "tiles/water_deep_0.png",
+        "tiles/water_deep_1.png"
+      ],
+      "walkable": false
+    },
+    "wall.brick": {
+      "files": [
+        "tiles/wall_brick_0.png",
+        "tiles/wall_brick_1.png",
+        "tiles/wall_brick_2.png",
+        "tiles/wall_brick_3.png",
+        "tiles/wall_brick_4.png",
+        "tiles/wall_brick_5.png",
+        "tiles/wall_brick_6.png",
+        "tiles/wall_brick_7.png"
+      ],
+      "walkable": false
+    },
+    "wall.stone": {
+      "files": [
+        "tiles/wall_stone_0.png",
+        "tiles/wall_stone_1.png",
+        "tiles/wall_stone_2.png",
+        "tiles/wall_stone_3.png",
+        "tiles/wall_stone_4.png",
+        "tiles/wall_stone_5.png",
+        "tiles/wall_stone_6.png",
+        "tiles/wall_stone_7.png",
+        "tiles/wall_stone_8.png",
+        "tiles/wall_stone_9.png",
+        "tiles/wall_stone_10.png",
+        "tiles/wall_stone_11.png"
+      ],
+      "walkable": false
+    },
+    "wall.dark": {
+      "files": [
+        "tiles/wall_dark_0.png",
+        "tiles/wall_dark_1.png",
+        "tiles/wall_dark_2.png",
+        "tiles/wall_dark_3.png",
+        "tiles/wall_dark_4.png",
+        "tiles/wall_dark_5.png",
+        "tiles/wall_dark_6.png"
+      ],
+      "walkable": false
+    },
+    "wall.crystal": {
+      "files": [
+        "tiles/wall_crystal_0.png",
+        "tiles/wall_crystal_1.png",
+        "tiles/wall_crystal_2.png",
+        "tiles/wall_crystal_3.png",
+        "tiles/wall_crystal_4.png",
+        "tiles/wall_crystal_5.png",
+        "tiles/wall_crystal_6.png",
+        "tiles/wall_crystal_7.png",
+        "tiles/wall_crystal_8.png",
+        "tiles/wall_crystal_9.png",
+        "tiles/wall_crystal_10.png",
+        "tiles/wall_crystal_11.png",
+        "tiles/wall_crystal_12.png",
+        "tiles/wall_crystal_13.png"
+      ],
+      "walkable": false
+    },
+    "tree": {
+      "files": [
+        "tiles/tree_0.png",
+        "tiles/tree_1.png"
+      ],
+      "walkable": false
     }
   },
   "props": {
     "door.closed": {
-      "file": "tiles/door_closed.png"
+      "files": [
+        "tiles/door_closed_0.png"
+      ]
     },
     "door.open": {
-      "file": "tiles/door_open.png"
+      "files": [
+        "tiles/door_open_0.png"
+      ]
     },
     "stairs.down": {
-      "file": "tiles/stairs_down.png"
+      "files": [
+        "tiles/stairs_down_0.png"
+      ]
     },
     "stairs.up": {
-      "file": "tiles/stairs_up.png"
+      "files": [
+        "tiles/stairs_up_0.png"
+      ]
     },
     "torch": {
-      "file": "tiles/torch.png"
+      "files": [
+        "tiles/torch_0.png",
+        "tiles/torch_1.png",
+        "tiles/torch_2.png",
+        "tiles/torch_3.png"
+      ]
+    },
+    "fire": {
+      "files": [
+        "tiles/fire_0.png",
+        "tiles/fire_1.png",
+        "tiles/fire_2.png",
+        "tiles/fire_3.png"
+      ]
+    },
+    "chest": {
+      "files": [
+        "tiles/chest_0.png"
+      ]
+    },
+    "chest.open": {
+      "files": [
+        "tiles/chest_open_0.png"
+      ]
     },
     "fountain": {
-      "file": "tiles/fountain.png"
+      "files": [
+        "tiles/fountain_0.png"
+      ]
     },
     "statue": {
-      "file": "tiles/statue.png"
+      "files": [
+        "tiles/statue_0.png"
+      ]
     },
     "altar": {
-      "file": "tiles/altar.png"
+      "files": [
+        "tiles/altar_0.png"
+      ]
     },
     "column": {
-      "file": "tiles/column.png"
+      "files": [
+        "tiles/column_0.png"
+      ]
     },
     "corpse": {
-      "file": "tiles/corpse.png"
+      "files": [
+        "tiles/corpse_0.png"
+      ]
     }
   },
   "sprites": {

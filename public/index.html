@@ -38,9 +38,18 @@
     </details>
     <div id="story-log"></div>
     <form id="action-bar">
+      <div id="quick-actions">
+        <div id="target-chip">click someone on the board to target them</div>
+        <div id="quick-buttons">
+          <button type="button" data-action="attack" title="Attack the target">⚔️ Attack</button>
+          <button type="button" data-action="cast" title="Cast a spell on the target">✦ Cast</button>
+          <button type="button" data-action="search" title="Search the area">🔍 Search</button>
+          <button type="button" data-action="talk" title="Talk to the target">💬 Talk</button>
+        </div>
+      </div>
       <textarea id="say-input" rows="1" placeholder="💬 say something (optional)"></textarea>
       <div id="do-row">
-        <textarea id="do-input" rows="1" placeholder="⚔ what do you do?"></textarea>
+        <textarea id="do-input" rows="1" placeholder="⚔️ what do you do?"></textarea>
         <button id="act-button">act</button>
       </div>
     </form>

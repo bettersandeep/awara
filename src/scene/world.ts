@@ -6,8 +6,8 @@ import { join } from "node:path";
 
 export type Catalog = {
   tileSize: number;
-  tiles: Record<string, { file: string; walkable: boolean }>;
-  props: Record<string, { file: string }>;
+  tiles: Record<string, { files: string[]; walkable: boolean }>; // files are variants
+  props: Record<string, { files: string[] }>; // files are animation frames
   sprites: Record<string, { file: string }>;
 };
 

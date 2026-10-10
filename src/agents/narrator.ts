@@ -17,6 +17,10 @@ import { type AgentModel, NARRATOR_DEFAULT_MODEL, runAgentTurn } from "./runAgen
 const PROMPT_FILE = join(import.meta.dirname, "..", "..", "personas", "narrator.md");
 const TURN_TIMEOUT_MS = 5 * 60_000;
 const MAX_TOOL_TURNS = 150;
+// Long narration made rounds slow: 9 to 12 sentences, about 65 s of speech each.
+const TARGET_NARRATION_WORDS = 80;
+const MAX_NARRATION_WORDS = 120;
+const NARRATOR_EFFORT = "low";
 
 // One part of a narration: plain narration, or one character's spoken line.
 export type NarrationBeat = { text: string; speaker?: string; gender?: string };
@@ -80,6 +84,13 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
         async (args) => {
           const beats = readBeats(args);
           if (beats.length === 0) return textResult("REJECTED: send beats (or text) with something to say.");
+          const words = beats.reduce((count, beat) => count + beat.text.split(/\s+/).filter(Boolean).length, 0);
+          if (words > MAX_NARRATION_WORDS) {
+            console.error(`narrate REJECTED: ${words} words`);
+            return textResult(
+              `REJECTED (not shown): ${words} words. The limit is ${MAX_NARRATION_WORDS}; aim for ${TARGET_NARRATION_WORDS}. ` +
+              "Keep the one most important moment and the choices, cut the rest, and send it again.");
+          }
           host.narrate(beats);
           // Echo what the map shows, so the narrator draws anything it just described.
           const map = host.world.maps[host.world.currentMap];
@@ -204,7 +215,7 @@ export function createNarrator(host: NarratorHost, characters: Record<string, Ch
       let announcedWorldBuilding = false;
       try {
         sessionId = await runAgentTurn({
-          prompt, systemPrompt, model, sessionId, abortController,
+          prompt, systemPrompt, model, sessionId, abortController, effort: NARRATOR_EFFORT,
           toolServerName: "dnd", toolServer, maxToolTurns: MAX_TOOL_TURNS,
           onMessage(message) {
             if (message.type === "assistant" && !announcedWorldBuilding) {

@@ -27,12 +27,13 @@ export function savingThrow(rng: Rng, c: Character, save: Save, dc: number): Che
 export function rollInitiative(rng: Rng, combatants: Character[]): { order: string[]; log: string } {
   const rolls = combatants.map((c) => ({
     id: c.id,
+    name: c.name,
     initiative: rollD20(rng) + abilityModifier(c.abilities.dex),
     dex: c.abilities.dex,
   }));
   // SRD tie-break: higher dexterity acts first
   rolls.sort((a, b) => b.initiative - a.initiative || b.dex - a.dex);
-  return { order: rolls.map((r) => r.id), log: rolls.map((r) => `${r.id}:${r.initiative}`).join(" ") };
+  return { order: rolls.map((r) => r.id), log: rolls.map((r) => `${r.name} ${r.initiative}`).join(", ") };
 }
 
 export type AttackResult = { hit: boolean; crit: boolean; damage: number; log: string };

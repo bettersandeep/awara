@@ -27,6 +27,7 @@ export type AgentTurn = {
   toolServerName: string;
   toolServer: McpSdkServerConfigWithInstance;
   maxToolTurns: number;
+  effort?: "low" | "medium" | "high"; // reasoning effort; omit for the model default
   abortController?: AbortController;
   onMessage?: (message: SDKMessage) => void;
 };
@@ -40,6 +41,7 @@ export async function runAgentTurn(turn: AgentTurn): Promise<string | undefined>
       systemPrompt: turn.systemPrompt,
       resume: turn.sessionId,
       maxTurns: turn.maxToolTurns,
+      effort: turn.effort,
       tools: [],
       settingSources: [],
       mcpServers: { [turn.toolServerName]: turn.toolServer },

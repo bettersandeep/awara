@@ -2,7 +2,7 @@
 // The session knows nothing about sockets. It sends plain messages to `broadcast`.
 import { makeRng } from "./rules/dice.ts";
 import { type Character, armorClass } from "./rules/character.ts";
-import { makeWorld } from "./scene/world.ts";
+import { type MapState, makeWorld } from "./scene/world.ts";
 import { applySceneOps } from "./scene/sceneOps.ts";
 import { type NarrationBeat, type Narrator, type NarratorHost, createNarrator } from "./agents/narrator.ts";
 import { type CompanionAgent, type Declaration, createCompanionAgent } from "./agents/companion.ts";
@@ -87,6 +87,13 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
   function log(rawText: string, kind: LogKind, speaker?: string) {
     const text = replaceLongDashes(rawText);
+    if (kind === "dice") {
+      addLogEntry({ text, kind });
+      // A roll can change hit points: update the HP bars on the board and the seats now.
+      broadcast(worldMessage());
+      broadcast(partyMessage());
+      return;
+    }
     if (kind !== "speech" || !speaker) return addLogEntry({ text, kind, speaker });
     const pieces = buildSpeechPieces([{ text, voice: voices[speaker] }], pronunciations);
     addLogEntry({ text: stripVoiceCues(text), kind, speaker, pieces }, speaker);
@@ -130,7 +137,22 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
   // ---- messages for the browser --------------------------------------------
 
-  const worldMessage = (): ServerMessage => ({ type: "world", map: world.maps[world.currentMap] ?? null });
+  // Hit points as a fraction of max hp, for each sprite that is a character.
+  // The narrator may give a sprite another id than its character, so names match too.
+  function healthOfSprites(map: MapState): Record<string, number> {
+    const health: Record<string, number> = {};
+    for (const sprite of map.sprites) {
+      const character = characters[sprite.id]
+        ?? Object.values(characters).find((c) => sprite.name && c.name.toLowerCase() === sprite.name.toLowerCase());
+      if (character) health[sprite.id] = Math.max(0, character.hp) / character.maxHp;
+    }
+    return health;
+  }
+
+  function worldMessage(): ServerMessage {
+    const map = world.maps[world.currentMap];
+    return { type: "world", map: map ?? null, health: map ? healthOfSprites(map) : {} };
+  }
 
   function partyMessage(): ServerMessage {
     return {
@@ -190,7 +212,9 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
   }
 
   async function openAdventure(activeNarrator: Narrator, openingPrompt: string) {
+    const started = Date.now();
     await activeNarrator.takeTurn(openingPrompt);
+    console.log(`opening: narrator ${((Date.now() - started) / 1000).toFixed(1)} s`);
     // A black screen is the worst failure, so the narrator gets one corrective turn.
     if (!world.currentMap) {
       log("~ the narrator gathers the scene...", "system");
@@ -209,27 +233,30 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
     const recentEvents = `Recent events:\n${readNewEventsForCompanions()}`;
     const activeCompanions = companions.filter((agent) => characters[agent.id].hp > 0);
+    const roundStarted = Date.now();
+    // Each companion's line appears as soon as that companion has decided.
     const results = await Promise.all(activeCompanions.map(async (agent) => {
       try {
-        return { id: agent.id, declaration: await agent.declare(recentEvents) };
+        const declaration = await agent.declare(recentEvents);
+        if (declaration?.dialogue) log(declaration.dialogue, "speech", agent.id);
+        if (declaration?.action) log(declaration.action, "intent", agent.id);
+        return { id: agent.id, declaration };
       } catch (error) {
         log(`${characters[agent.id].name} is lost in thought (${(error as Error).message})`, "system");
         return { id: agent.id, declaration: null };
       }
     }));
+    const companionsDone = Date.now();
 
     const declarations = [describeDeclaration(PLAYER_ID, { action, dialogue }, " (the human player)")];
-    for (const { id, declaration } of results) {
-      if (!declaration) continue;
-      if (declaration.dialogue) log(declaration.dialogue, "speech", id);
-      if (declaration.action) log(declaration.action, "intent", id);
-      declarations.push(describeDeclaration(id, declaration));
-    }
+    for (const { id, declaration } of results) if (declaration) declarations.push(describeDeclaration(id, declaration));
 
     await activeNarrator.takeTurn(
       `Party declarations this round:\n${declarations.join("\n")}\n` +
       "Resolve the round. Every being the party can now see must be a sprite on the map.",
     );
+    const seconds = (from: number, to: number) => ((to - from) / 1000).toFixed(1);
+    console.log(`round: companions ${seconds(roundStarted, companionsDone)} s, narrator ${seconds(companionsDone, Date.now())} s`);
   }
 
   // ---- requests from the browser -------------------------------------------
