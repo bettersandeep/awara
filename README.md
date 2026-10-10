@@ -12,16 +12,22 @@ Claude agents play your three companions, and one more Claude agent is the narra
   The narrator changes it only with validated scene operations, so a map looks the same every time the party returns to it.
 - **Agents** (`src/agents`): the narrator and the companions are Claude Agent SDK sessions.
   They can use only their game tools: no shell, no file access, and no user settings.
+  By default Claude Opus 5.5 narrates and Claude Haiku 5.5 plays the companions.
+  Each seat can switch between Haiku 5.5, Sonnet 5.5 and Opus 5.5 during play.
 - **Personas** (`personas`): one Markdown file per companion, plus the narrator prompt.
 - **Browser client** (`public`): a canvas draws the map from the tile catalog.
   The seats around the board show the party, and the side panel shows the story.
-- **Speech** (`src/tts.ts`): Kokoro-82M reads the story aloud, locally on the CPU.
+- **Speech** (`src/speech`): Kokoro-82M reads the story aloud, locally on the CPU.
+  The text is split at punctuation, so commas, full stops and ellipses are real pauses, and long narration is never cut.
+  NPC lines are spoken in their own voices, and the narrator can add voice cues such as `(pause)`, `(whisper)` and `*emphasis*`.
+  The story log highlights each phrase while it is spoken and shows the cues, the speakers and the pronunciations.
 
 ## Requirements
 
 - Node.js 24 or later (it runs TypeScript directly).
 - Claude Code, logged in on this machine.
   The agents use that login, so no API key is necessary.
+  Opus 5.5 needs `@anthropic-ai/claude-agent-sdk` 0.3.296 or newer, which `npm install` provides.
 
 ## Run
 

@@ -71,6 +71,17 @@ test("translates the field dialect that haiku actually emits", () => {
   assert.equal(map.lighting, "torch");
 });
 
+test("translates set_tiles with a shared tile and [x, y] pairs (Opus 5.5)", () => {
+  const world = makeRoom();
+  // Taken verbatim from a real narrator batch that the validator rejected.
+  applySceneOps(world, [{ op: "set_tiles", map: "room", tile: "tree", cells: [[4, 3], [6, 2]] }]);
+  assert.equal(world.maps.room.tiles[3][4], "tree");
+  assert.equal(world.maps.room.tiles[2][6], "tree");
+  // Opus 5.5 also names the list "tiles"
+  applySceneOps(world, [{ op: "set_tiles", map: "room", tiles: [{ x: 5, y: 4, tile: "water.shallow" }] }]);
+  assert.equal(world.maps.room.tiles[4][5], "water.shallow");
+});
+
 test("a batch with one bad op changes nothing", () => {
   const world = makeRoom();
   const badBatch = [

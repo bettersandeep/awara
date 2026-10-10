@@ -4,18 +4,34 @@ import { makeRng } from "./rules/dice.ts";
 import { type Character, armorClass } from "./rules/character.ts";
 import { makeWorld } from "./scene/world.ts";
 import { applySceneOps } from "./scene/sceneOps.ts";
-import { type Narrator, type NarratorHost, createNarrator } from "./agents/narrator.ts";
+import { type NarrationBeat, type Narrator, type NarratorHost, createNarrator } from "./agents/narrator.ts";
 import { type CompanionAgent, type Declaration, createCompanionAgent } from "./agents/companion.ts";
-import { AGENT_MODELS, type AgentModel, isAgentModel } from "./agents/runAgentTurn.ts";
+import { AGENT_MODELS, type AgentModel, NARRATOR_DEFAULT_MODEL, isAgentModel } from "./agents/runAgentTurn.ts";
 import { CLASS_BUILDS, PLAYER_ID, createParty, isCharacterClass } from "./party.ts";
 import { SCENARIOS, chooseScenario } from "./scenarios.ts";
-import { KOKORO_VOICES, NARRATOR_VOICE, type Voice, isVoice, synthesizeSpeech } from "./tts.ts";
+import { type Beat, type SpeechPiece, buildSpeechPieces, stripVoiceCues } from "./speech/script.ts";
+import { type PieceTiming, synthesizeSpeech } from "./speech/synthesizer.ts";
+import { KOKORO_VOICES, NARRATOR_VOICE, type Voice, chooseNpcVoice, isVoice } from "./speech/voices.ts";
 
 export type ServerMessage = { type: string; [field: string]: unknown };
 export type ClientRequest = Record<string, unknown>;
 
 type LogKind = "story" | "dice" | "system" | "speech" | "intent";
-type LogEntry = { text: string; kind: LogKind; speaker?: string; audioId?: number };
+type LogEntry = {
+  text: string; // plain text, also what the agents read
+  kind: LogKind;
+  speaker?: string;
+  pieces?: SpeechPiece[]; // spoken lines only
+  audioId?: number;
+  timings?: PieceTiming[];
+};
+
+// Models use em and en dashes even when told not to; the story uses plain hyphens.
+const replaceLongDashes = (text: string) => text.replace(/\s*[\u2013\u2014]\s*/g, " - ");
+
+// The browser needs only what it shows, not the voice settings.
+const displayPiece = ({ text, speaker, dialogue, cue, emphasis, pronunciations, breakAfter }: SpeechPiece) =>
+  ({ text, speaker, dialogue, cue, emphasis, pronunciations, breakAfter });
 
 const NARRATOR_SEAT = "narrator";
 const MAX_NAME_LENGTH = 24;
@@ -45,25 +61,58 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
   const partyIds: string[] = [];
   let companions: CompanionAgent[] = [];
   let narrator: Narrator | null = null;
-  let narratorModel: AgentModel = "haiku";
+  let narratorModel: AgentModel = NARRATOR_DEFAULT_MODEL;
   let objective = "";
   let roundInProgress = false;
   let companionsHaveRead = 0; // story log entries the companions have already seen
+  const pronunciations = new Map<string, string>(); // word -> how the voice says it
+  const npcVoices = new Map<string, Voice>(); // lower-case NPC name -> voice
 
   // ---- story log -----------------------------------------------------------
 
-  function log(rawText: string, kind: LogKind, speaker?: string) {
-    // Models use em and en dashes even when told not to; the story uses plain hyphens.
-    const text = rawText.replace(/\s*[\u2013\u2014]\s*/g, " - ");
-    const entry: LogEntry = { text, kind, speaker };
+  const logMessage = (entry: LogEntry, logIndex: number): ServerMessage =>
+    ({ type: "log", ...entry, pieces: entry.pieces?.map(displayPiece), logIndex });
+
+  // `seat` is whose seat glows while the line plays.
+  function addLogEntry(entry: LogEntry, seat?: string) {
     const logIndex = storyLog.push(entry) - 1;
-    broadcast({ type: "log", ...entry, logIndex });
-    const voiceOwner = kind === "story" ? NARRATOR_SEAT : kind === "speech" ? speaker : undefined;
-    if (!voiceOwner || !voices[voiceOwner]) return;
-    synthesizeSpeech(text, voices[voiceOwner], (audioId) => {
+    broadcast(logMessage(entry, logIndex));
+    if (!entry.pieces) return;
+    synthesizeSpeech(entry.pieces, (audioId, timings) => {
       entry.audioId = audioId;
-      broadcast({ type: "audio", audioId, speaker: voiceOwner, logIndex });
+      entry.timings = timings;
+      broadcast({ type: "audio", audioId, timings, speaker: seat, logIndex });
     });
+  }
+
+  function log(rawText: string, kind: LogKind, speaker?: string) {
+    const text = replaceLongDashes(rawText);
+    if (kind !== "speech" || !speaker) return addLogEntry({ text, kind, speaker });
+    const pieces = buildSpeechPieces([{ text, voice: voices[speaker] }], pronunciations);
+    addLogEntry({ text: stripVoiceCues(text), kind, speaker, pieces }, speaker);
+  }
+
+  // Party members keep their seat voice; each NPC gets one voice for the game.
+  function voiceForBeat({ speaker, gender }: NarrationBeat): Voice {
+    if (!speaker) return voices[NARRATOR_SEAT];
+    const memberId = partyIds.find((id) => characters[id].name.toLowerCase() === speaker.toLowerCase());
+    if (memberId) return voices[memberId];
+    const key = speaker.toLowerCase();
+    if (!npcVoices.has(key)) {
+      const voicesInUse = new Set([...Object.values(voices), ...npcVoices.values()]);
+      npcVoices.set(key, chooseNpcVoice(speaker, gender, voicesInUse));
+    }
+    return npcVoices.get(key)!;
+  }
+
+  function narrate(narrationBeats: NarrationBeat[]) {
+    const beats: Beat[] = narrationBeats.map((beat) => ({
+      text: replaceLongDashes(beat.text), speaker: beat.speaker, voice: voiceForBeat(beat),
+    }));
+    const text = beats
+      .map((beat) => (beat.speaker ? `${beat.speaker}: "${stripVoiceCues(beat.text)}"` : stripVoiceCues(beat.text)))
+      .join(" ");
+    addLogEntry({ text, kind: "story", pieces: buildSpeechPieces(beats, pronunciations) }, NARRATOR_SEAT);
   }
 
   function describeEvent(entry: LogEntry): string {
@@ -86,7 +135,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
   function partyMessage(): ServerMessage {
     return {
       type: "party",
-      modelOptions: AGENT_MODELS,
+      modelOptions: Object.entries(AGENT_MODELS).map(([key, { label }]) => ({ key, label })),
       voiceOptions: KOKORO_VOICES,
       narrator: { id: NARRATOR_SEAT, model: narratorModel, voice: voices[NARRATOR_SEAT] },
       members: partyIds.map((id) => {
@@ -112,7 +161,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
   // Everything a newly connected browser needs to show the current game.
   function snapshotMessages(): ServerMessage[] {
     const messages: ServerMessage[] = [partyMessage(), worldMessage()];
-    storyLog.forEach((entry, logIndex) => messages.push({ type: "log", ...entry, logIndex }));
+    storyLog.forEach((entry, logIndex) => messages.push(logMessage(entry, logIndex)));
     messages.push({ type: "busy", busy: roundInProgress });
     if (objective) messages.push({ type: "objective", text: objective });
     if (!narrator) messages.push(setupMessage());
@@ -239,10 +288,14 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
       applySceneOps(world, rawOps);
       broadcast(worldMessage());
     },
+    narrate,
     log,
     setObjective(text) {
       objective = text;
       broadcast({ type: "objective", text });
+    },
+    setPronunciation(word, sayAs) {
+      pronunciations.set(word, sayAs);
     },
   };
 

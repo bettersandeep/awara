@@ -8,12 +8,14 @@ function element(tag, className, text) {
   return node;
 }
 
+// options: plain strings, or { key, label } pairs
 function dropdown(label, options, selected, onChange) {
   const select = element("select");
   select.title = label;
   for (const option of options) {
-    const item = element("option", null, `${label}: ${option}`);
-    item.value = option;
+    const { key, label: optionLabel } = typeof option === "string" ? { key: option, label: option } : option;
+    const item = element("option", null, `${label}: ${optionLabel}`);
+    item.value = key;
     select.appendChild(item);
   }
   select.value = selected;
@@ -67,7 +69,7 @@ export function createSeats({ catalog, onSeatChange }) {
 
       members.filter((member) => !member.isPlayer).forEach((member, index) => {
         renderSeat(document.getElementById(`seat-companion-${index + 1}`), {
-          id: member.id, title: member.name, subtitle: `${member.characterClass} ${member.level} · ${member.model}`,
+          id: member.id, title: member.name, subtitle: `${member.characterClass} ${member.level}`,
           sprite: member.sprite, member, model: member.model, voice: member.voice,
         }, party);
       });

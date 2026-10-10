@@ -24,7 +24,10 @@ const send = (message) => socket.send(JSON.stringify(message));
 
 const board = createBoard(document.getElementById("board"), catalog);
 const seats = createSeats({ catalog, onSeatChange: (seat, change) => send({ type: "seat", seat, ...change }) });
-const speech = createSpeech({ onSpeakerChange: (speaker, isSpeaking) => seats.setSpeaking(speaker, isSpeaking) });
+const speech = createSpeech({
+  onSpeakerChange: (speaker, isSpeaking) => seats.setSpeaking(speaker, isSpeaking),
+  onPosition: (audioId, seconds) => storyLog.showSpokenPosition(audioId, seconds),
+});
 const storyLog = createStoryLog(document.getElementById("story-log"), {
   nameOf: (id) => party?.members.find((member) => member.id === id)?.name ?? id,
   onReplay: (audioId, speaker) => speech.playNow(audioId, speaker),
@@ -61,8 +64,8 @@ const messageHandlers = {
     if (!doInput.disabled) doInput.placeholder = actionPrompt();
   },
   log: (entry) => storyLog.add(entry),
-  audio({ audioId, speaker, logIndex }) {
-    storyLog.addReplayButton(logIndex, audioId, speaker);
+  audio({ audioId, timings, speaker, logIndex }) {
+    storyLog.attachAudio(logIndex, audioId, timings, speaker);
     speech.clipReady(audioId, speaker);
   },
   busy: ({ busy }) => setBusy(busy),

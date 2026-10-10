@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import { type ClientRequest, type ServerMessage, createGameSession } from "./session.ts";
-import { getSpeechClip } from "./tts.ts";
+import { getSpeechClip } from "./speech/synthesizer.ts";
 
 const PORT = 8420;
 // Local play only: the agents run on your own Claude login.

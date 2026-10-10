@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Rng, pickRandom } from "./rules/dice.ts";
 import { type Abilities, type Character, type CharacterClass, makeCharacter } from "./rules/character.ts";
-import type { Voice } from "./tts.ts";
+import type { Voice } from "./speech/voices.ts";
 
 const PERSONAS_DIR = join(import.meta.dirname, "..", "personas");
 

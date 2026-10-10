@@ -1,15 +1,23 @@
-// Plays spoken story lines in order. Autoplay starts off, because browsers block
-// audio until the user interacts with the page.
-export function createSpeech({ onSpeakerChange }) {
+// Plays spoken story lines in order and reports the playback position, so the
+// story log can highlight the words being spoken. Autoplay starts off, because
+// browsers block audio until the user interacts with the page.
+export function createSpeech({ onSpeakerChange, onPosition }) {
   let autoplay = false;
   let queue = [];
-  let current = null; // { audio, speaker }
+  let current = null; // { audio, audioId, speaker }
+
+  function reportPosition() {
+    if (!current) return;
+    onPosition(current.audioId, current.audio.currentTime);
+    requestAnimationFrame(reportPosition);
+  }
 
   function stop() {
     if (!current) return;
     current.audio.onended = null;
     current.audio.pause();
     onSpeakerChange(current.speaker, false);
+    onPosition(current.audioId, null);
     current = null;
   }
 
@@ -18,11 +26,11 @@ export function createSpeech({ onSpeakerChange }) {
     const next = queue.shift();
     if (!next) return;
     const audio = new Audio(`audio/${next.audioId}.wav`);
-    current = { audio, speaker: next.speaker };
+    current = { audio, ...next };
     onSpeakerChange(next.speaker, true);
     audio.onended = playNext;
     audio.onerror = playNext;
-    audio.play().catch(playNext);
+    audio.play().then(reportPosition).catch(playNext);
   }
 
   return {

@@ -12,19 +12,37 @@ import {
 } from "../rules/engine.ts";
 import { MONSTERS, spawnMonster } from "../rules/monsters.ts";
 import { catalog, type World } from "../scene/world.ts";
-import { type AgentModel, runAgentTurn } from "./runAgentTurn.ts";
+import { type AgentModel, NARRATOR_DEFAULT_MODEL, runAgentTurn } from "./runAgentTurn.ts";
 
 const PROMPT_FILE = join(import.meta.dirname, "..", "..", "personas", "narrator.md");
 const TURN_TIMEOUT_MS = 5 * 60_000;
 const MAX_TOOL_TURNS = 150;
 
+// One part of a narration: plain narration, or one character's spoken line.
+export type NarrationBeat = { text: string; speaker?: string; gender?: string };
+
 // What the narrator needs from the game session.
 export type NarratorHost = {
   world: World;
   applySceneOps: (rawOps: unknown[]) => void;
-  log: (text: string, kind: "story" | "dice" | "system") => void;
+  narrate: (beats: NarrationBeat[]) => void;
+  log: (text: string, kind: "dice" | "system") => void;
   setObjective: (text: string) => void;
+  setPronunciation: (word: string, sayAs: string) => void;
 };
+
+// The schema stays loose, as with scene_ops; the narrator may also send plain text.
+function readBeats(args: { text?: string; beats?: Array<Record<string, unknown>> }): NarrationBeat[] {
+  const beats = (args.beats ?? [])
+    .filter((beat) => typeof beat.text === "string" && beat.text.trim())
+    .map((beat) => ({
+      text: String(beat.text),
+      speaker: typeof beat.speaker === "string" && beat.speaker.trim() ? beat.speaker.trim() : undefined,
+      gender: typeof beat.gender === "string" ? beat.gender : undefined,
+    }));
+  if (beats.length === 0 && args.text?.trim()) beats.push({ text: args.text, speaker: undefined, gender: undefined });
+  return beats;
+}
 
 export type Narrator = ReturnType<typeof createNarrator>;
 
@@ -50,10 +68,19 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
     name: "dnd",
     version: "1.0.0",
     tools: [
-      tool("narrate", "Show story text to the players. 2-4 sentences per beat.",
-        { text: z.string() },
-        async ({ text }) => {
-          host.log(text, "story");
+      tool("narrate",
+        "Show and speak story text. Send `beats` in order: a beat without `speaker` is narration; " +
+        "a beat with `speaker` is that character's spoken line, written without quote marks, and is spoken in their own voice. " +
+        "Give `gender` (female or male) the first time an NPC speaks. " +
+        "Voice cues inside any text: (pause), (long pause), (whisper), (slowly), (quickly), *emphasis*.",
+        {
+          beats: z.array(z.object({ text: z.string(), speaker: z.string().optional(), gender: z.string().optional() }).passthrough()).optional(),
+          text: z.string().optional(),
+        },
+        async (args) => {
+          const beats = readBeats(args);
+          if (beats.length === 0) return textResult("REJECTED: send beats (or text) with something to say.");
+          host.narrate(beats);
           // Echo what the map shows, so the narrator draws anything it just described.
           const map = host.world.maps[host.world.currentMap];
           const visible = map ? map.sprites.map((s) => s.id).join(", ") : "NOTHING";
@@ -112,6 +139,14 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
           const verb = args.amount >= 0 ? "takes" : "recovers";
           return logRoll(`${character.name} ${verb} ${Math.abs(args.amount)} (${args.reason}): ${character.hp}/${character.maxHp} ${lifeState(character)}`);
         }),
+      tool("set_pronunciation",
+        "Teach the voice how to say an invented name. sayAs is a plain English respelling, not IPA. Example: word Hrothgar, sayAs Roth-gar.",
+        { word: z.string(), sayAs: z.string() },
+        async ({ word, sayAs }) => {
+          if (!word.trim() || !sayAs.trim()) return textResult("REJECTED: word and sayAs must not be empty.");
+          host.setPronunciation(word.trim(), sayAs.trim());
+          return textResult(`The voice now says "${word.trim()}" as "${sayAs.trim()}".`);
+        }),
       tool("set_objective", "Set or update the party's current quest, shown in the UI. One sentence.",
         { text: z.string() },
         async ({ text }) => {
@@ -156,7 +191,7 @@ export function createNarrator(host: NarratorHost, characters: Record<string, Ch
   const toolServer = createToolServer(host, characters, rng);
   const systemPrompt = buildSystemPrompt(characters, playerId);
   let sessionId: string | undefined;
-  let model: AgentModel = "haiku";
+  let model: AgentModel = NARRATOR_DEFAULT_MODEL;
 
   return {
     get model() { return model; },

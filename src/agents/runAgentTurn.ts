@@ -5,10 +5,19 @@
 // Auth is the local Claude Code login; no API key is read or stored here.
 import { query, type McpSdkServerConfigWithInstance, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
-export const AGENT_MODELS = ["haiku", "sonnet", "opus"] as const;
-export type AgentModel = (typeof AGENT_MODELS)[number];
+// Pinned model versions. Opus 5.5 needs the Claude Code engine 2.1.280 or newer,
+// which @anthropic-ai/claude-agent-sdk 0.3.296 bundles.
+export const AGENT_MODELS = {
+  haiku: { id: "claude-haiku-5-5", label: "Haiku 5.5" },
+  sonnet: { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+  opus: { id: "claude-opus-5-5", label: "Opus 5.5" },
+} as const;
+export type AgentModel = keyof typeof AGENT_MODELS;
 
-export const isAgentModel = (value: unknown): value is AgentModel => AGENT_MODELS.includes(value as AgentModel);
+export const NARRATOR_DEFAULT_MODEL: AgentModel = "opus";
+export const COMPANION_DEFAULT_MODEL: AgentModel = "haiku";
+
+export const isAgentModel = (value: unknown): value is AgentModel => typeof value === "string" && value in AGENT_MODELS;
 
 export type AgentTurn = {
   prompt: string;
@@ -27,7 +36,7 @@ export async function runAgentTurn(turn: AgentTurn): Promise<string | undefined>
   const conversation = query({
     prompt: turn.prompt,
     options: {
-      model: turn.model,
+      model: AGENT_MODELS[turn.model].id,
       systemPrompt: turn.systemPrompt,
       resume: turn.sessionId,
       maxTurns: turn.maxToolTurns,

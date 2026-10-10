@@ -59,14 +59,19 @@ export function normalizeOp(world: World, raw: unknown): Op {
       op.name ??= op.id;
       op.lighting = toLighting(op.lighting);
       break;
-    case "set_tiles":
-      if (!op.cells && Array.isArray(op.coords)) {
-        op.cells = op.coords.map(([x, y]: number[]) => ({ x: Math.round(x), y: Math.round(y), tile: op.tile }));
-      } else if (!op.cells) {
+    case "set_tiles": {
+      const cells = [op.cells, op.coords, op.tiles, op.positions, op.points].find(Array.isArray);
+      if (!Array.isArray(cells)) {
         // rectangle-shaped set_tiles is a paint_rect
         return { op: "paint_rect", map: op.map, x: op.x, y: op.y, w: op.w ?? 1, h: op.h ?? 1, tile: op.tile };
       }
+      // cells may be {x, y, tile} objects or [x, y] pairs; a shared tile may sit on the op
+      op.cells = cells.map((cell: LooseOp | number[]) => {
+        const [x, y, tile] = Array.isArray(cell) ? [cell[0], cell[1], undefined] : [cell.x, cell.y, cell.tile];
+        return { x: Math.round(x), y: Math.round(y), tile: tile ?? op.tile };
+      });
       break;
+    }
     case "add_prop": {
       op.type ??= op.prop ?? op.kind;
       const takenIds = new Set((world.maps[op.map]?.props ?? []).map((p) => p.id));

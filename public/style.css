@@ -86,6 +86,28 @@ body {
 #story-log .intent { color: #c8a068; }
 .replay-button { padding: 0 4px; font-size: 11px; color: #8fb7e8; background: none; border: none; cursor: pointer; }
 
+/* Spoken lines: follow-along highlight and annotations */
+#story-log .piece { border-radius: 3px; transition: background-color 0.15s; }
+#story-log .now-speaking { background: #3a3150; color: #fff3c4; }
+#story-log em.piece { font-style: italic; color: #f2e6b8; }
+#story-log .dialogue { color: #e9c9a4; }
+#story-log abbr { text-decoration: underline dotted #8f86a5; cursor: help; }
+.speaker-label {
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--background);
+  background: #c8a068;
+  border-radius: 3px;
+}
+.cue-tag {
+  padding: 0 4px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
 #action-bar { display: flex; flex-direction: column; border-top: 2px solid var(--border); }
 #action-bar input { font: inherit; border: 0; outline: none; background: var(--input); }
 #action-bar input:disabled { opacity: 0.45; }
