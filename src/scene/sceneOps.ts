@@ -42,7 +42,11 @@ function readOpName(raw: LooseOp): { name: OpName; fields: LooseOp } {
 const toLighting = (value: unknown): Lighting =>
   LIGHTING_OPTIONS.includes(value as Lighting) ? (value as Lighting) : "torch";
 
-export function normalizeOp(world: World, raw: unknown): Op {
+// The context a batch gives each op: the map that ops without a map id go to, and
+// the party, so a party member added by name gets its own character id.
+type BatchContext = { defaultMap: string; partyIdsByName: Map<string, string> };
+
+function normalizeOp(world: World, raw: unknown, context: BatchContext): Op {
   const { name, fields } = readOpName(raw as LooseOp);
   const op: LooseOp = { ...fields, op: name };
 
@@ -50,7 +54,9 @@ export function normalizeOp(world: World, raw: unknown): Op {
   op.h ??= op.height;
   for (const axis of ["x", "y", "w", "h"]) if (typeof op[axis] === "number") op[axis] = Math.round(op[axis]);
 
-  if (OPS_ON_A_MAP.includes(name) && !world.maps[op.map]) op.map = world.currentMap || Object.keys(world.maps)[0];
+  // Only a missing map id gets the default. An unknown id is an error, so a typo
+  // never paints the wrong map.
+  if (OPS_ON_A_MAP.includes(name) && !op.map) op.map = context.defaultMap;
 
   switch (name) {
     case "create_map":
@@ -80,6 +86,9 @@ export function normalizeOp(world: World, raw: unknown): Op {
     }
     case "add_sprite": {
       op.key ??= op.sprite;
+      // A party member keeps its character id, so adding it twice is an error, not a
+      // copy. Other beings with the same name (two goblins) get numbered ids.
+      if (typeof op.name === "string") op.id ??= context.partyIdsByName.get(op.name.toLowerCase());
       const takenIds = new Set(Object.values(world.maps).flatMap((m) => m.sprites.map((s) => s.id)));
       op.id ??= uniqueId(takenIds, toSlug(String(op.name ?? op.key ?? "sprite")));
       break;
@@ -93,11 +102,17 @@ export function normalizeOp(world: World, raw: unknown): Op {
 
 // Applies a batch atomically: every operation applies, or the world stays unchanged.
 // Operations are normalized one at a time, so later operations can refer to maps
-// that earlier operations in the same batch created.
-export function applySceneOps(world: World, rawOps: unknown[]): void {
+// that earlier operations in the same batch created. An op without a map id goes
+// to the map that the batch created last, else to the current map.
+export function applySceneOps(world: World, rawOps: unknown[], partyIdsByName = new Map<string, string>()): void {
   const backup = structuredClone(world);
+  const context: BatchContext = { defaultMap: world.currentMap || Object.keys(world.maps)[0], partyIdsByName };
   try {
-    for (const rawOp of rawOps) applyOp(world, normalizeOp(world, rawOp));
+    for (const rawOp of rawOps) {
+      const op = normalizeOp(world, rawOp, context);
+      applyOp(world, op);
+      if (op.op === "create_map") context.defaultMap = op.id;
+    }
   } catch (error) {
     Object.assign(world, backup);
     throw error;

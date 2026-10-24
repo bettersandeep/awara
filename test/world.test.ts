@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { type World, applyOp, makeWorld } from "../src/scene/world.ts";
+import { type World, applyOp, catalog, makeWorld } from "../src/scene/world.ts";
+import { CLASS_BUILDS } from "../src/party.ts";
+import { MONSTERS } from "../src/rules/monsters.ts";
 import { applySceneOps } from "../src/scene/sceneOps.ts";
 
 function makeRoom(): World {
@@ -90,4 +92,61 @@ test("a batch with one bad op changes nothing", () => {
   ];
   assert.throws(() => applySceneOps(world, badBatch));
   assert.equal(world.maps.room.sprites.length, 0);
+});
+
+test("ops without a map id go to the map the batch created, not the old one", () => {
+  const world = makeWorld();
+  const party = new Map([["thorin", "thorin"]]);
+  applySceneOps(world, [
+    { op: "create_map", name: "Tavern", w: 10, h: 8 },
+    { op: "add_sprite", x: 2, y: 2, sprite: "fighter", name: "Thorin" },
+  ], party);
+  applySceneOps(world, [
+    { op: "create_map", name: "Forest", w: 10, h: 8, fill: "floor.grass" },
+    { op: "paint_rect", x: 0, y: 0, w: 10, h: 1, tile: "tree" },
+    { op: "add_sprite", x: 3, y: 3, sprite: "wolf", name: "Wolf" },
+  ], party);
+  assert.equal(world.maps.tavern.tiles[0][0], "floor.stone");
+  assert.equal(world.maps.forest.tiles[0][0], "tree");
+  assert.deepEqual(world.maps.tavern.sprites.map((s) => s.id), ["thorin"]);
+  assert.deepEqual(world.maps.forest.sprites.map((s) => s.id), ["wolf"]);
+  // An op that names no map still goes to the current map when the batch made none.
+  applySceneOps(world, [{ op: "set_lighting", lighting: "dark" }]);
+  assert.equal(world.maps.tavern.lighting, "dark");
+});
+
+test("an unknown map id and a party member added twice are errors, two goblins are not", () => {
+  const world = makeRoom();
+  const party = new Map([["thorin", "thorin"]]);
+  assert.throws(() => applySceneOps(world, [{ op: "add_prop", map: "roon", type: "torch", x: 1, y: 1 }]), /unknown map "roon"/);
+  assert.throws(() => applySceneOps(world, [{ op: "add_prop", map: "constructor", type: "torch", x: 1, y: 1 }]), /unknown map/);
+  applySceneOps(world, [{ op: "add_sprite", x: 2, y: 2, sprite: "fighter", name: "Thorin" }], party);
+  const addThorinAgain = () => applySceneOps(world, [{ op: "add_sprite", x: 3, y: 3, sprite: "fighter", name: "Thorin" }], party);
+  assert.throws(addThorinAgain, /already exists on map "room". Use move_sprite/);
+  applySceneOps(world, [
+    { op: "add_sprite", x: 4, y: 4, sprite: "goblin", name: "Goblin" },
+    { op: "add_sprite", x: 5, y: 4, sprite: "goblin", name: "Goblin" },
+  ], party);
+  assert.deepEqual(world.maps.room.sprites.map((s) => s.id), ["thorin", "goblin", "goblin_2"]);
+});
+
+test("a sprite placed on a wall moves to the closest walkable cell", () => {
+  const world = makeRoom();
+  applyOp(world, { op: "add_sprite", map: "room", id: "pip", key: "rogue", x: 4, y: 0 });
+  assert.deepEqual([world.maps.room.sprites[0].x, world.maps.room.sprites[0].y], [3, 1]);
+  applyOp(world, { op: "create_map", id: "cave", name: "Cave", w: 5, h: 5, fill: "wall.dark" });
+  applyOp(world, { op: "paint_rect", map: "cave", x: 4, y: 4, w: 1, h: 1, tile: "floor.dirt" });
+  applyOp(world, { op: "change_map", map: "cave", positions: { pip: { x: 0, y: 0 } } });
+  assert.deepEqual([world.maps.cave.sprites[0].x, world.maps.cave.sprites[0].y], [4, 4]);
+});
+
+test("change_map without positions says what it needs", () => {
+  const world = makeRoom();
+  const op = { op: "change_map", map: "room" } as Parameters<typeof applyOp>[1];
+  assert.throws(() => applyOp(world, op), /change_map requires positions/);
+});
+
+test("every class and monster has a sprite in the catalog", () => {
+  const keys = [...Object.values(CLASS_BUILDS).map((build) => build.sprite), ...Object.values(MONSTERS).map((m) => m.sprite)];
+  assert.deepEqual(keys.filter((key) => !catalog.sprites[key]), []);
 });

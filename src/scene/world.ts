@@ -48,19 +48,38 @@ export type Op =
   | { op: "change_map"; map: string; positions: Record<string, Position> }
   | { op: "set_lighting"; map: string; lighting: Lighting };
 
-export const MAX_MAP_WIDTH = 60;
-export const MAX_MAP_HEIGHT = 40;
+const MAX_MAP_WIDTH = 60;
+const MAX_MAP_HEIGHT = 40;
 
 export const makeWorld = (): World => ({ maps: {}, currentMap: "" });
 
+// Keys come from model output, so "constructor" and other inherited names must not match.
+const has = (record: object, key: unknown): key is string => typeof key === "string" && Object.hasOwn(record, key);
+
 function getMap(world: World, mapId: string): MapState {
-  const map = world.maps[mapId];
-  if (!map) throw new Error(`unknown map "${mapId}". Maps: ${Object.keys(world.maps).join(", ") || "(none)"}`);
-  return map;
+  if (!has(world.maps, mapId)) throw new Error(`unknown map "${mapId}". Maps: ${Object.keys(world.maps).join(", ") || "(none)"}`);
+  return world.maps[mapId];
 }
 
 function checkTile(tileKey: string) {
-  if (!catalog.tiles[tileKey]) throw new Error(`unknown tile "${tileKey}". Valid: ${Object.keys(catalog.tiles).join(", ")}`);
+  if (!has(catalog.tiles, tileKey)) throw new Error(`unknown tile "${tileKey}". Valid: ${Object.keys(catalog.tiles).join(", ")}`);
+}
+
+const isWalkable = (map: MapState, x: number, y: number) =>
+  x >= 0 && y >= 0 && x < map.w && y < map.h && catalog.tiles[map.tiles[y][x]].walkable;
+
+// A sprite placed on a wall moves to the closest walkable cell. Rejecting the
+// batch instead can leave the players with a black screen.
+function nearestWalkable(map: MapState, x: number, y: number): Position {
+  for (let distance = 0; distance < Math.max(map.w, map.h); distance++) {
+    for (let dy = -distance; dy <= distance; dy++) {
+      for (let dx = -distance; dx <= distance; dx++) {
+        const onRing = Math.max(Math.abs(dx), Math.abs(dy)) === distance;
+        if (onRing && isWalkable(map, x + dx, y + dy)) return { x: x + dx, y: y + dy };
+      }
+    }
+  }
+  return { x, y }; // a map with no walkable cell keeps the given position
 }
 
 function checkInBounds(map: MapState, x: number, y: number) {
@@ -81,7 +100,7 @@ export function applyOp(world: World, operation: Op): void {
     case "create_map": {
       const { id, name, w, h, fill, lighting } = operation;
       if (!id) throw new Error("create_map requires an id");
-      if (world.maps[id]) throw new Error(`map "${id}" already exists`);
+      if (has(world.maps, id)) throw new Error(`map "${id}" already exists`);
       checkTile(fill);
       const validSize = Number.isInteger(w) && Number.isInteger(h) && w >= 3 && h >= 3 && w <= MAX_MAP_WIDTH && h <= MAX_MAP_HEIGHT;
       if (!validSize) throw new Error(`map size w/h must be integers in 3x3..${MAX_MAP_WIDTH}x${MAX_MAP_HEIGHT}`);
@@ -114,7 +133,7 @@ export function applyOp(world: World, operation: Op): void {
     case "add_prop": {
       const map = getMap(world, operation.map);
       const { id, type, x, y } = operation;
-      if (!catalog.props[type]) throw new Error(`unknown prop "${type}". Valid: ${Object.keys(catalog.props).join(", ")}`);
+      if (!has(catalog.props, type)) throw new Error(`unknown prop "${type}". Valid: ${Object.keys(catalog.props).join(", ")}`);
       if (map.props.some((p) => p.id === id)) throw new Error(`prop id "${id}" already on map`);
       checkInBounds(map, x, y);
       map.props.push({ id, type, x, y });
@@ -130,11 +149,11 @@ export function applyOp(world: World, operation: Op): void {
     case "add_sprite": {
       const map = getMap(world, operation.map);
       const { id, key, x, y, name } = operation;
-      if (!catalog.sprites[key]) throw new Error(`unknown sprite key "${key}". Valid: ${Object.keys(catalog.sprites).join(", ")}`);
-      const idTaken = Object.values(world.maps).some((m) => m.sprites.some((s) => s.id === id));
-      if (idTaken) throw new Error(`sprite id "${id}" already exists`);
+      if (!has(catalog.sprites, key)) throw new Error(`unknown sprite key "${key}". Valid: ${Object.keys(catalog.sprites).join(", ")}`);
+      const placedOn = Object.values(world.maps).find((m) => m.sprites.some((s) => s.id === id));
+      if (placedOn) throw new Error(`sprite id "${id}" already exists on map "${placedOn.id}". Use move_sprite, or change_map to bring it to another map`);
       checkInBounds(map, x, y);
-      map.sprites.push({ id, key, x, y, name });
+      map.sprites.push({ id, key, name, ...nearestWalkable(map, x, y) });
       return;
     }
     case "remove_sprite": {
@@ -147,18 +166,21 @@ export function applyOp(world: World, operation: Op): void {
       const { x, y } = operation;
       checkInBounds(map, x, y);
       const tile = map.tiles[y][x];
-      if (!catalog.tiles[tile].walkable) throw new Error(`(${x},${y}) is "${tile}", not walkable`);
+      if (!isWalkable(map, x, y)) throw new Error(`(${x},${y}) is "${tile}", not walkable`);
       sprite.x = x;
       sprite.y = y;
       return;
     }
     case "change_map": {
       const destination = getMap(world, operation.map);
+      if (!operation.positions || typeof operation.positions !== "object") {
+        throw new Error('change_map requires positions, for example {"hero": {"x": 2, "y": 3}}, for every sprite that goes along');
+      }
       for (const [spriteId, position] of Object.entries(operation.positions)) {
         const { map, sprite } = findSprite(world, spriteId);
         checkInBounds(destination, position.x, position.y);
         map.sprites.splice(map.sprites.indexOf(sprite), 1);
-        destination.sprites.push({ ...sprite, ...position });
+        destination.sprites.push({ ...sprite, ...nearestWalkable(destination, position.x, position.y) });
       }
       world.currentMap = destination.id;
       return;

@@ -313,7 +313,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
   const narratorHost: NarratorHost = {
     world,
     applySceneOps(rawOps) {
-      applySceneOps(world, rawOps);
+      applySceneOps(world, rawOps, new Map(partyIds.map((id) => [characters[id].name.toLowerCase(), id])));
       broadcast(worldMessage());
     },
     narrate,
