@@ -90,9 +90,11 @@ test("pronunciations also apply to names with accents", () => {
   assert.deepEqual(narrate("Éowyna waits.", new Map([["Éowyn", "Ay-oh-win"]]))[0].speak, "Éowyna waits.");
 });
 
-test("numbers and titles do not end a clause", () => {
+test("numbers, dotted words and titles do not end a clause", () => {
   const pieces = narrate("Mr. Grim paid 2.5 gold, then 1,000 more. Dr. Vey left.");
   assert.deepEqual(pieces.map((p) => p.text), ["Mr. Grim paid 2.5 gold,", "then 1,000 more.", "Dr. Vey left."]);
+  const link = narrate("Install Node.js, then open localhost:8420.");
+  assert.deepEqual(link.map((p) => p.text), ["Install Node.js,", "then open localhost:8420."]);
 });
 
 test("a long clause is split so Kokoro never truncates it", () => {

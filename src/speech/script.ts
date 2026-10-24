@@ -76,11 +76,12 @@ const MAX_DIRECTION_WORDS = 3; // a longer parenthesis is ordinary prose and is 
 const MARKUP = /\(([a-z][a-z' -]*)\)|\*([^*\n]+)\*|\n\s*\n/gi;
 
 // A clause ends after , ; : ... ! ? . (with closing quotes), or before a spaced dash.
-// Punctuation inside a number ("2.5", "1,000") and the dot of a title ("Mr.") do not end it.
+// Punctuation inside a word or number ("2.5", "1,000", "Node.js", "localhost:8420")
+// and the dot of a title ("Mr.") do not end it.
 const TITLE = String.raw`\b(?:Mrs?|Ms|Dr|St|Mt)`;
 const CLAUSE = new RegExp(
-  String.raw`(?:[^,;:.!?…]|[.,:](?=\p{N})|(?<=${TITLE})\.)+?` +
-  String.raw`(?:\.\.\.|…|(?<!${TITLE})[,;:.!?]+["'”’)\]]*(?!\p{N})|\s+-\s+|$)`,
+  String.raw`(?:[^,;:.!?…]|[.,:](?=[\p{L}\p{N}])|(?<=${TITLE})\.)+?` +
+  String.raw`(?:\.\.\.|…|(?<!${TITLE})[,;:.!?]+["'”’)\]]*(?![\p{L}\p{N}])|\s+-\s+|$)`,
   "gu",
 );
 
