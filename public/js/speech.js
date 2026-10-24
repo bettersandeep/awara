@@ -14,7 +14,6 @@ export function createSpeech({ onSpeakerChange, onPosition }) {
 
   function stop() {
     if (!current) return;
-    current.audio.onended = null;
     current.audio.pause();
     onSpeakerChange(current.speaker, false);
     onPosition(current.audioId, null);
@@ -28,9 +27,13 @@ export function createSpeech({ onSpeakerChange, onPosition }) {
     const audio = new Audio(`audio/${next.audioId}.wav`);
     current = { audio, ...next };
     onSpeakerChange(next.speaker, true);
-    audio.onended = playNext;
-    audio.onerror = playNext;
-    audio.play().then(reportPosition).catch(playNext);
+    // A failed clip fires onerror and also rejects play(); only the clip that is
+    // still playing may advance the queue, or the next clip is skipped.
+    const advance = () => {
+      if (current?.audio === audio) playNext();
+    };
+    audio.onended = audio.onerror = advance;
+    audio.play().then(reportPosition).catch(advance);
   }
 
   return {

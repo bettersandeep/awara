@@ -60,6 +60,9 @@ export type SpeechPiece = {
 
 type Cue = "pause" | "long pause" | StyleCue;
 
+// The cue list as the agents read it in their prompts and tool descriptions.
+export const VOICE_CUES = "(pause), (long pause), (whisper), (slowly), (quickly), *emphasis*";
+
 const CUE_SYNONYMS: Record<string, Cue> = {
   pause: "pause", beat: "pause", "long pause": "long pause", silence: "long pause",
   whisper: "whisper", whispers: "whisper", whispering: "whisper", quietly: "whisper", softly: "whisper", hushed: "whisper",
@@ -73,7 +76,13 @@ const MAX_DIRECTION_WORDS = 3; // a longer parenthesis is ordinary prose and is 
 const MARKUP = /\(([a-z][a-z' -]*)\)|\*([^*\n]+)\*|\n\s*\n/gi;
 
 // A clause ends after , ; : ... ! ? . (with closing quotes), or before a spaced dash.
-const CLAUSE = /[^,;:.!?…]+?(?:\.\.\.|…|[,;:.!?]+["'”’)\]]*|\s+-\s+|$)/g;
+// Punctuation inside a number ("2.5", "1,000") and the dot of a title ("Mr.") do not end it.
+const TITLE = String.raw`\b(?:Mrs?|Ms|Dr|St|Mt)`;
+const CLAUSE = new RegExp(
+  String.raw`(?:[^,;:.!?…]|[.,:](?=\p{N})|(?<=${TITLE})\.)+?` +
+  String.raw`(?:\.\.\.|…|(?<!${TITLE})[,;:.!?]+["'”’)\]]*(?!\p{N})|\s+-\s+|$)`,
+  "gu",
+);
 
 function pauseAfterClause(clause: string): { pauseMs: number; endsSentence: boolean } {
   const ending = clause.trimEnd().replace(/["'”’)\]]+$/, "");
@@ -95,11 +104,14 @@ function splitLongClause(clause: string): string[] {
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// A whole-word match that also works for names with accents, such as Éowyn (\b does not).
+const wholeWord = (pattern: string) => new RegExp(`(?<![\\p{L}\\p{N}])${pattern}(?![\\p{L}\\p{N}])`, "giu");
+
 function applyPronunciations(text: string, pronunciations: Map<string, string>) {
   let speak = text;
   const used: Record<string, string> = {};
   for (const [word, sayAs] of pronunciations) {
-    const pattern = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
+    const pattern = wholeWord(escapeRegExp(word));
     if (!pattern.test(speak)) continue;
     speak = speak.replace(pattern, sayAs);
     used[word] = sayAs;

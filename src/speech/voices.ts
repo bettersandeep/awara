@@ -25,7 +25,7 @@ function hashName(name: string): number {
 export function chooseNpcVoice(name: string, gender: string | undefined, voicesInUse: Set<Voice>): Voice {
   const genderHint = gender?.trim().toLowerCase();
   const wantsFemale = genderHint?.startsWith("f") || genderHint === "woman" || genderHint === "girl";
-  const wantsMale = genderHint?.startsWith("m") || genderHint === "man" || genderHint === "boy";
+  const wantsMale = genderHint?.startsWith("m") || genderHint === "boy";
   const sameGender = KOKORO_VOICES.filter((voice) =>
     wantsFemale ? isFemaleVoice(voice) : wantsMale ? !isFemaleVoice(voice) : true);
   const unused = sameGender.filter((voice) => !voicesInUse.has(voice));

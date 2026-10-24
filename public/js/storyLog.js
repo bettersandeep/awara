@@ -9,7 +9,8 @@ const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function appendWithPronunciationHints(container, text, pronunciations) {
   const words = Object.keys(pronunciations ?? {});
   if (words.length === 0) return container.append(text);
-  const pattern = new RegExp(`\\b(${words.map(escapeRegExp).join("|")})\\b`, "gi");
+  // A whole-word match that also works for names with accents, such as Éowyn (\b does not).
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(${words.map(escapeRegExp).join("|")})(?![\\p{L}\\p{N}])`, "giu");
   let position = 0;
   for (const match of text.matchAll(pattern)) {
     container.append(text.slice(position, match.index));

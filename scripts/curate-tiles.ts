@@ -4,8 +4,9 @@
 // Source: https://opengameart.org/sites/default/files/crawl-tiles%20Oct-5-2010.zip
 // Usage: node scripts/curate-tiles.ts <path to the extracted crawl-tiles folder>
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { crc32, deflateSync } from "node:zlib";
+import type { Catalog } from "../src/scene/world.ts";
 
 const sourceRoot = process.argv[2];
 if (!sourceRoot || !existsSync(sourceRoot)) throw new Error("Pass the extracted crawl-tiles folder as the first argument.");
@@ -203,12 +204,7 @@ function copyAll(key: string, sources: string[]): string[] {
 rmSync(tilesDir, { recursive: true, force: true });
 mkdirSync(tilesDir, { recursive: true });
 
-const catalog = {
-  tileSize: TILE_SIZE,
-  tiles: {} as Record<string, { files: string[]; walkable: boolean }>,
-  props: {} as Record<string, { files: string[] }>,
-  sprites: {} as Record<string, { file: string }>,
-};
+const catalog: Catalog = { tileSize: TILE_SIZE, tiles: {}, props: {}, sprites: {} };
 
 for (const [key, { sources, walkable }] of Object.entries(TILES)) {
   const files = sources === "draw-wood"
@@ -231,7 +227,6 @@ for (const [key, candidates] of Object.entries(SPRITES)) {
     continue;
   }
   const file = `tiles/${key.replace(/\./g, "_")}.png`;
-  mkdirSync(dirname(join(publicDir, file)), { recursive: true });
   copyFileSync(join(sourceRoot, source), join(publicDir, file));
   catalog.sprites[key] = { file };
 }

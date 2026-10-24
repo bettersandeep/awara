@@ -80,7 +80,6 @@ const messageHandlers = {
     seats.render(party);
     board.setPartyIds(party.members.map((member) => member.id));
     quickActions.setPlayer(party.members.find((member) => member.isPlayer));
-    quickActions.setBusy(doInput.disabled);
     if (!doInput.disabled) doInput.placeholder = actionPrompt();
   },
   log: (entry) => storyLog.add(entry),
@@ -104,6 +103,7 @@ function connect() {
   };
   socket.onclose = () => {
     mapName.textContent = "reconnecting...";
+    setBusy(true);
     storyLog.clear();
     setTimeout(connect, RECONNECT_DELAY_MS);
   };
@@ -132,7 +132,8 @@ actionBar.onsubmit = (event) => {
   event.preventDefault();
   const action = doInput.value.trim();
   const dialogue = sayInput.value.trim();
-  if (doInput.disabled || (!action && !dialogue)) return;
+  // A round sent while the socket reconnects would be lost, so the text stays.
+  if (doInput.disabled || socket?.readyState !== WebSocket.OPEN || (!action && !dialogue)) return;
   send({ type: "action", do: action, say: dialogue });
   doInput.value = sayInput.value = "";
   fitToText(doInput);

@@ -84,6 +84,17 @@ test("pronunciations change what is spoken, not what is shown", () => {
   assert.deepEqual(piece.pronunciations, { Hrothgar: "Roth-gar" });
 });
 
+test("pronunciations also apply to names with accents", () => {
+  const [piece] = narrate("Éowyn rides past Zoë.", new Map([["Éowyn", "Ay-oh-win"], ["Zoë", "Zo-ee"]]));
+  assert.equal(piece.speak, "Ay-oh-win rides past Zo-ee.");
+  assert.deepEqual(narrate("Éowyna waits.", new Map([["Éowyn", "Ay-oh-win"]]))[0].speak, "Éowyna waits.");
+});
+
+test("numbers and titles do not end a clause", () => {
+  const pieces = narrate("Mr. Grim paid 2.5 gold, then 1,000 more. Dr. Vey left.");
+  assert.deepEqual(pieces.map((p) => p.text), ["Mr. Grim paid 2.5 gold,", "then 1,000 more.", "Dr. Vey left."]);
+});
+
 test("a long clause is split so Kokoro never truncates it", () => {
   const longClause = Array(100).fill("word").join(" ");
   const pieces = narrate(longClause);
