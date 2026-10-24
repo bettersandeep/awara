@@ -7,9 +7,9 @@ The narrator draws every place on the board and reads the story aloud.
 
 ## Watch a game
 
-[![Click to watch a 79-second gameplay video with sound](screenshots/02-the-table.png)](video/awara-gameplay.mp4)
+https://github.com/user-attachments/assets/cf7b27f2-440a-4625-8bb6-4ffec92930e0
 
-Click the picture to watch a short game with sound: character creation, the opening scene, the spoken story with its highlight, one round, and a fight.
+A 79-second game with sound: character creation, the opening scene, the spoken story with its highlight, one round, and a fight.
 The waits for the AI turns are sped up in the video.
 
 ## Start the game

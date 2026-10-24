@@ -8,7 +8,11 @@ Repository: https://github.com/bettersandeep/awara
 
 ![A silent 17-second preview of play: the narrator builds the map, the companions decide, and the engine rolls the dice](docs/video/preview.gif)
 
-New players: watch the [gameplay video](docs/video/awara-gameplay.mp4) (79 seconds, with sound), then read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-step instructions.
+New players: watch the full game with sound (79 seconds) here:
+
+https://github.com/user-attachments/assets/cf7b27f2-440a-4625-8bb6-4ffec92930e0
+
+Then read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-step instructions.
 
 ## How it works
 
