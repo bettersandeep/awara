@@ -1,10 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeRng, roll, rollDiceExpression } from "../src/rules/dice.ts";
+import { makeRng, roll, rollD20, rollDiceExpression } from "../src/rules/dice.ts";
 import {
   type CharacterSpec, abilityModifier, armorClass, attackBonus, lifeState, makeCharacter, saveBonus,
 } from "../src/rules/character.ts";
-import { applyDamage, attack, castSpell, heal, rollInitiative, savingThrow, skillCheck } from "../src/rules/engine.ts";
+import { applyDamage, attack, castSpell, heal, rest, rollInitiative, savingThrow, skillCheck } from "../src/rules/engine.ts";
+import { createParty, isCharacterClass } from "../src/party.ts";
+import { isAgentModel } from "../src/agents/runAgentTurn.ts";
+import { SCENARIOS, chooseScenario } from "../src/scenarios.ts";
 
 const makeTestCharacter = (spec: Partial<CharacterSpec> & Pick<CharacterSpec, "characterClass">, seed = 1) =>
   makeCharacter(makeRng(seed), {
@@ -108,8 +111,11 @@ test("skill checks and saves add the right bonuses", () => {
   const rng = makeRng(3);
   const f = fighter();
   f.skillRanks.climb = 4;
-  const check = skillCheck(rng, f, "climb", "str", 10);
-  assert.equal(check.total, check.roll + 7);
+  const check = skillCheck(rng, f, "climb", undefined, 10);
+  assert.equal(check.total, check.roll + 7); // 4 ranks + str 3, the key ability of climb
+  const doorCheck = skillCheck(rng, f, undefined, "str", 10);
+  assert.equal(doorCheck.total, doorCheck.roll + 3);
+  assert.match(doorCheck.log, /str check/);
   const save = savingThrow(rng, f, "ref", 15);
   assert.equal(save.total, save.roll + 2); // poor 0 + dex 2
 });
@@ -139,12 +145,60 @@ test("spells use slots, deal damage and cap healing", () => {
   const missile = castSpell(rng, w, "magic missile", f);
   assert.ok(missile.success && missile.amount >= 2 && missile.amount <= 5); // 1 missile, 1d4+1
   assert.equal(w.spellSlots, 1);
+  assert.equal(castSpell(rng, w, "cure light wounds", f).success, false); // not a wizard spell
+  assert.equal(w.spellSlots, 1);
+  const cleric = makeTestCharacter({ id: "brenna", characterClass: "cleric", weapon: "mace" });
   applyDamage(f, 5);
   const hurtHp = f.hp;
-  const cure = castSpell(rng, w, "cure light wounds", f);
+  const cure = castSpell(rng, cleric, "cure light wounds", f);
   assert.ok(cure.success && f.hp > hurtHp && f.hp <= f.maxHp);
-  assert.equal(castSpell(rng, w, "magic missile", f).success, false);
+  castSpell(rng, w, "magic missile", f);
+  assert.equal(castSpell(rng, w, "magic missile", f).success, false); // no slots left
+  rest(w);
+  assert.equal(w.spellSlots, 2);
   const healthy = fighter("healthy");
   heal(healthy, 100);
   assert.equal(healthy.hp, healthy.maxHp);
+});
+
+test("two-handed weapons add 1.5 times the strength bonus", () => {
+  // str 17 (+3): a two-handed greataxe adds +4. Replaying the seed gives the damage die.
+  const barbarian = makeTestCharacter({ characterClass: "barbarian", weapon: "greataxe", abilities: { str: 17, dex: 13, con: 16, int: 8, wis: 10, cha: 8 } });
+  let hits = 0;
+  for (let seed = 1; seed < 100; seed++) {
+    const result = attack(makeRng(seed), barbarian, fighter());
+    const replay = makeRng(seed);
+    if (!result.hit || rollD20(replay) === 20) continue; // a 20 rolls a crit confirmation first
+    assert.equal(result.damage, rollDiceExpression(replay, "1d12") + 4);
+    hits++;
+  }
+  assert.ok(hits > 0);
+});
+
+test("dying characters cannot act, and rest heals only those who can", () => {
+  const w = wizard();
+  applyDamage(w, w.maxHp + 2);
+  assert.match(attack(makeRng(1), w, fighter()).log, /is dying and cannot attack/);
+  assert.equal(castSpell(makeRng(1), w, "magic missile", fighter()).success, false);
+  const hp = w.hp;
+  rest(w);
+  assert.equal(w.hp, hp);
+  const f = fighter();
+  applyDamage(f, 3);
+  rest(f);
+  assert.equal(f.hp, f.maxHp - 2); // 1 hp per level
+});
+
+test("party characters start with their class skill ranks", () => {
+  const { player, companions } = createParty(makeRng(2), "Rowan", "rogue");
+  assert.equal(player.character.skillRanks["open lock"], 4);
+  assert.equal(companions.length, 3);
+});
+
+test("built-in object names are not classes, models or scenarios", () => {
+  for (const key of ["constructor", "toString", "__proto__"]) {
+    assert.equal(isCharacterClass(key), false);
+    assert.equal(isAgentModel(key), false);
+    assert.ok(Object.values(SCENARIOS).includes(chooseScenario(makeRng(1), key)));
+  }
 });

@@ -48,7 +48,8 @@ async function serveStaticFile(response: ServerResponse, urlPath: string) {
 }
 
 async function handleHttpRequest(request: IncomingMessage, response: ServerResponse) {
-  const path = new URL(request.url ?? "/", "http://localhost").pathname;
+  const path = URL.parse(request.url ?? "/", "http://localhost")?.pathname;
+  if (!path) return response.writeHead(400).end();
   const clip = path.match(/^\/audio\/(\d+)\.wav$/);
   if (clip) return serveSpeechClip(response, Number(clip[1]));
   await serveStaticFile(response, path === "/" ? "/index.html" : path);
@@ -80,9 +81,14 @@ function handleClientMessage(text: string) {
     return;
   }
   if (!request || typeof request !== "object") return;
-  if (request.type === "start") session.start(request);
-  else if (request.type === "action") session.playRound(request);
-  else if (request.type === "seat") session.configureSeat(request);
+  // One bad message must not stop the server and end the game for everyone.
+  try {
+    if (request.type === "start") session.start(request);
+    else if (request.type === "action") session.playRound(request);
+    else if (request.type === "seat") session.configureSeat(request);
+  } catch (error) {
+    console.error(`client message "${String(request.type)}" failed:`, error);
+  }
 }
 
 socketServer.on("connection", (socket) => {

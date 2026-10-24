@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Rng, pickRandom } from "./rules/dice.ts";
-import { type Abilities, type Character, type CharacterClass, makeCharacter } from "./rules/character.ts";
+import { type Abilities, type Character, type CharacterClass, type Skill, makeCharacter } from "./rules/character.ts";
 import type { Voice } from "./speech/voices.ts";
 
 const PERSONAS_DIR = join(import.meta.dirname, "..", "personas");
@@ -22,6 +22,7 @@ type ClassBuild = {
   shield: boolean;
   weapon: string;
   sprite: string;
+  skills: Skill[]; // trained class skills
   summary: string; // shown in character creation
   powers: string; // short line on the seat card
 };
@@ -32,73 +33,88 @@ export const CLASS_BUILDS: Record<CharacterClass, ClassBuild> = {
   fighter: {
     label: "Fighter", role: "martial", abilities: abilities([16, 14, 14, 10, 12, 8]),
     armor: "chainmail", shield: true, weapon: "longsword", sprite: "fighter",
+    skills: ["climb", "intimidate"],
     summary: "Front line tank. Longsword 1d8 (crit 19-20), heavy shield, chainmail. AC 19, 12 hp. Best attack bonus.",
     powers: "front line · longsword 1d8 (crit 19-20) · heavy shield",
   },
   barbarian: {
     label: "Barbarian", role: "martial", abilities: abilities([17, 13, 16, 8, 10, 8]),
     armor: "leather", shield: false, weapon: "greataxe", sprite: "barbarian",
+    skills: ["intimidate", "listen", "survival"],
     summary: "Raging brute. Greataxe 1d12 (crit x3), 15 hp, the hardest hitter. Light armor, no fear.",
     powers: "rage & fury · greataxe 1d12 (crit x3) · toughest hp",
   },
   paladin: {
     label: "Paladin", role: "martial", abilities: abilities([15, 10, 13, 8, 10, 14]),
     armor: "chainmail", shield: true, weapon: "longsword", sprite: "paladin",
+    skills: ["diplomacy"],
     summary: "Holy knight. Longsword 1d8, shield and chainmail, AC 17. Strong presence, unshakable against evil.",
     powers: "holy front line · longsword 1d8 · shield",
   },
   monk: {
     label: "Monk", role: "martial", abilities: abilities([13, 15, 12, 10, 15, 8]),
     armor: "none", shield: false, weapon: "unarmed", sprite: "monk",
+    skills: ["tumble", "hide", "move silently", "listen"],
     summary: "Unarmed 1d6 strikes, wisdom-guided dodge (AC without armor), the best saving throws in the game.",
     powers: "unarmed 1d6 · wisdom dodge AC · best saves",
   },
   rogue: {
     label: "Rogue", role: "skirmish", abilities: abilities([10, 17, 12, 13, 10, 14]),
     armor: "leather", shield: false, weapon: "shortsword", sprite: "rogue",
+    skills: ["hide", "move silently", "open lock", "disable device", "search", "spot", "listen", "tumble", "sleight of hand"],
     summary: "Stealth, scouting, locks and traps. Shortsword 1d6 (crit 19-20), leather armor. High dexterity and reflexes.",
     powers: "stealth & scouting · shortsword 1d6 (crit 19-20)",
   },
   ranger: {
     label: "Ranger", role: "skirmish", abilities: abilities([14, 16, 12, 10, 13, 8]),
     armor: "leather", shield: false, weapon: "longbow", sprite: "ranger",
+    skills: ["survival", "hide", "move silently", "listen", "spot", "search"],
     summary: "Tracker and archer. Longbow 1d8 (crit x3) from range, good in the wilds, solid in melee too.",
     powers: "tracking & archery · longbow 1d8 (crit x3)",
   },
   bard: {
     label: "Bard", role: "skirmish", abilities: abilities([10, 14, 12, 13, 8, 16]),
     armor: "leather", shield: false, weapon: "shortsword", sprite: "bard",
+    skills: ["perform", "diplomacy", "bluff", "gather information", "knowledge", "sense motive", "listen"],
     summary: "Talker, lorekeeper, charmer. Shortsword 1d6, spell slots, the best face for negotiations.",
     powers: "song, lore & charm · shortsword 1d6",
   },
   wizard: {
     label: "Wizard", role: "arcane", abilities: abilities([8, 14, 12, 16, 10, 10]),
     armor: "none", shield: false, weapon: "quarterstaff", sprite: "wizard",
+    skills: ["spellcraft", "knowledge", "concentration", "decipher script", "craft"],
     summary: "Magic missile: auto-hit 1d4+1, no roll needed. 2 spell slots per day. Fragile (5 hp) but decisive.",
     powers: "magic missile (auto-hit 1d4+1)",
   },
   sorcerer: {
     label: "Sorcerer", role: "arcane", abilities: abilities([8, 14, 14, 10, 10, 16]),
     armor: "none", shield: false, weapon: "dagger", sprite: "sorcerer",
+    skills: ["spellcraft", "concentration"],
     summary: "Innate caster. Magic missile 1d4+1 auto-hit, tougher than a wizard, charisma to burn.",
     powers: "magic missile (auto-hit 1d4+1) · innate magic",
   },
   cleric: {
     label: "Cleric", role: "divine", abilities: abilities([12, 10, 14, 10, 16, 12]),
     armor: "scalemail", shield: true, weapon: "mace", sprite: "cleric",
+    skills: ["heal", "concentration"],
     summary: "Cure light wounds 1d8+1 (2 slots). Mace 1d8, scale mail and shield. The party lives longer with you.",
     powers: "cure light wounds (1d8+1) · mace 1d8",
   },
   druid: {
     label: "Druid", role: "divine", abilities: abilities([12, 12, 14, 10, 16, 10]),
     armor: "leather", shield: false, weapon: "scimitar", sprite: "druid",
+    skills: ["survival", "handle animal", "heal", "spot"],
     summary: "Nature's voice. Cure light wounds, scimitar 1d6, at home in every wilderness.",
     powers: "cure light wounds (1d8+1) · scimitar 1d6",
   },
 };
 
 export const isCharacterClass = (value: unknown): value is CharacterClass =>
-  typeof value === "string" && value in CLASS_BUILDS;
+  typeof value === "string" && Object.hasOwn(CLASS_BUILDS, value);
+
+// SRD level 1: a trained class skill starts at the maximum rank, level + 3.
+// The number of skills follows the class skill points and the intelligence modifier.
+const STARTING_RANKS = 4;
 
 // Every companion id has a persona file at personas/<id>.md.
 type CompanionTemplate = { id: string; name: string; characterClass: CharacterClass; voice: Voice };
@@ -133,7 +149,8 @@ function buildCharacter(rng: Rng, id: string, name: string, characterClass: Char
   const build = CLASS_BUILDS[characterClass];
   return makeCharacter(rng, {
     id, name, characterClass,
-    abilities: { ...build.abilities }, armor: build.armor, shield: build.shield, weapon: build.weapon, sprite: build.sprite,
+    abilities: build.abilities, armor: build.armor, shield: build.shield, weapon: build.weapon, sprite: build.sprite,
+    skillRanks: Object.fromEntries(build.skills.map((skill) => [skill, STARTING_RANKS])),
   });
 }
 

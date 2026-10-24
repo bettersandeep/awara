@@ -1,8 +1,8 @@
 // SRD 3.5 resolution. Every function rolls real dice and returns a readable log line.
 import { type Rng, rollD20, roll, rollDiceExpression } from "./dice.ts";
 import {
-  type Ability, type Character, type Save,
-  WEAPONS, abilityModifier, armorClass, attackBonus, lifeState, saveBonus,
+  type Ability, type Character, type Save, type Skill, type Spell,
+  SKILLS, WEAPONS, abilityModifier, armorClass, attackBonus, canAct, canCast, lifeState, saveBonus, spellSlotsPerDay,
 } from "./character.ts";
 
 export type CheckResult = { success: boolean; roll: number; total: number; log: string };
@@ -10,19 +10,23 @@ export type CheckResult = { success: boolean; roll: number; total: number; log: 
 // "d20(17)-2=15", never "d20(17)+-2=15"
 const describeRoll = (d20: number, bonus: number) => `d20(${d20})${bonus < 0 ? "-" : "+"}${Math.abs(bonus)}=${d20 + bonus}`;
 
-export function skillCheck(rng: Rng, c: Character, skill: string, ability: Ability, dc: number): CheckResult {
+function check(rng: Rng, c: Character, label: string, bonus: number, dc: number): CheckResult {
   const d20 = rollD20(rng);
-  const bonus = (c.skillRanks[skill] ?? 0) + abilityModifier(c.abilities[ability]);
   const total = d20 + bonus;
-  return { success: total >= dc, roll: d20, total, log: `${c.name} ${skill}: ${describeRoll(d20, bonus)} vs DC ${dc}` };
+  return { success: total >= dc, roll: d20, total, log: `${c.name} ${label}: ${describeRoll(d20, bonus)} vs DC ${dc}` };
 }
 
-export function savingThrow(rng: Rng, c: Character, save: Save, dc: number): CheckResult {
-  const d20 = rollD20(rng);
-  const bonus = saveBonus(c, save);
-  const total = d20 + bonus;
-  return { success: total >= dc, roll: d20, total, log: `${c.name} ${save} save: ${describeRoll(d20, bonus)} vs DC ${dc}` };
+// A skill check uses the skill's key ability unless `ability` overrides it.
+// With no skill, it is a plain ability check (for example strength to break a door).
+export function skillCheck(rng: Rng, c: Character, skill: Skill | undefined, ability: Ability | undefined, dc: number): CheckResult {
+  const keyAbility = ability ?? (skill && SKILLS[skill]);
+  if (!keyAbility) throw new Error("give a skill, an ability, or both");
+  const bonus = (skill ? c.skillRanks[skill] ?? 0 : 0) + abilityModifier(c.abilities[keyAbility]);
+  return check(rng, c, skill ?? `${keyAbility} check`, bonus, dc);
 }
+
+export const savingThrow = (rng: Rng, c: Character, save: Save, dc: number): CheckResult =>
+  check(rng, c, `${save} save`, saveBonus(c, save), dc);
 
 export function rollInitiative(rng: Rng, combatants: Character[]): { order: string[]; log: string } {
   const rolls = combatants.map((c) => ({
@@ -38,27 +42,36 @@ export function rollInitiative(rng: Rng, combatants: Character[]): { order: stri
 
 export type AttackResult = { hit: boolean; crit: boolean; damage: number; log: string };
 
+// SRD: a natural 1 always misses and a natural 20 always hits.
+const beatsArmorClass = (d20: number, bonus: number, targetAc: number) => d20 !== 1 && (d20 === 20 || d20 + bonus >= targetAc);
+
+function damageModifier(attacker: Character): number {
+  const weapon = WEAPONS[attacker.weapon];
+  if (weapon.ranged) return 0;
+  const strength = abilityModifier(attacker.abilities.str);
+  return weapon.twoHanded && strength > 0 ? Math.floor(strength * 1.5) : strength;
+}
+
 export function attack(rng: Rng, attacker: Character, target: Character): AttackResult {
+  if (!canAct(attacker)) return { hit: false, crit: false, damage: 0, log: `${attacker.name} is ${lifeState(attacker)} and cannot attack` };
   const weapon = WEAPONS[attacker.weapon];
   const targetAc = armorClass(target);
   const bonus = attackBonus(attacker);
   const d20 = rollD20(rng);
-  // natural 1 always misses, natural 20 always hits
-  const hit = d20 !== 1 && (d20 === 20 || d20 + bonus >= targetAc);
+  const hit = beatsArmorClass(d20, bonus, targetAc);
   let log = `${attacker.name} attacks ${target.name} with ${weapon.name}: ${describeRoll(d20, bonus)} vs AC ${targetAc}`;
   if (!hit) return { hit, crit: false, damage: 0, log: `${log} - miss` };
 
   let crit = false;
   if (d20 >= weapon.critRangeStart) {
     const confirmRoll = rollD20(rng);
-    crit = confirmRoll !== 1 && (confirmRoll === 20 || confirmRoll + bonus >= targetAc);
+    crit = beatsArmorClass(confirmRoll, bonus, targetAc);
     log += ` threat, confirm ${describeRoll(confirmRoll, bonus)}${crit ? " CRIT" : " no crit"}`;
   }
-  const damageModifier = weapon.ranged ? 0 : abilityModifier(attacker.abilities.str);
   // SRD: a crit rolls the weapon damage critMultiplier times
   const damageRolls = crit ? weapon.critMultiplier : 1;
   let damage = 0;
-  for (let i = 0; i < damageRolls; i++) damage += rollDiceExpression(rng, weapon.damage) + damageModifier;
+  for (let i = 0; i < damageRolls; i++) damage += rollDiceExpression(rng, weapon.damage) + damageModifier(attacker);
   damage = Math.max(1, damage);
   applyDamage(target, damage);
   return { hit, crit, damage, log: `${log} - hit for ${damage} (${target.name} ${target.hp}hp, ${lifeState(target)})` };
@@ -72,13 +85,13 @@ export function heal(c: Character, amount: number) {
   c.hp = Math.min(c.maxHp, c.hp + amount);
 }
 
-export const SPELLS = ["magic missile", "cure light wounds"] as const;
-export type Spell = (typeof SPELLS)[number];
-
 export type SpellResult = { success: boolean; amount: number; log: string };
 
 export function castSpell(rng: Rng, caster: Character, spell: Spell, target: Character): SpellResult {
-  if (caster.spellSlots < 1) return { success: false, amount: 0, log: `${caster.name} has no spell slots left` };
+  const fail = (reason: string) => ({ success: false, amount: 0, log: `${caster.name} ${reason}` });
+  if (!canAct(caster)) return fail(`is ${lifeState(caster)} and cannot cast`);
+  if (!canCast(caster, spell)) return fail(`cannot cast ${spell}: it is not a ${caster.characterClass} spell`);
+  if (caster.spellSlots < 1) return fail("has no spell slots left");
   caster.spellSlots -= 1;
 
   if (spell === "magic missile") {
@@ -96,4 +109,13 @@ export function castSpell(rng: Rng, caster: Character, spell: Spell, target: Cha
   heal(target, roll(rng, 1, 8)[0] + Math.min(5, caster.level));
   const healed = target.hp - hpBefore;
   return { success: true, amount: healed, log: `${caster.name} casts cure light wounds: heals ${healed} (${target.name} ${target.hp}hp)` };
+}
+
+// SRD: a full night's rest restores the spell slots and heals 1 hp per level.
+// A dying character must first be stabilized, so it does not heal here.
+export function rest(c: Character): string {
+  c.spellSlots = spellSlotsPerDay(c);
+  if (!canAct(c)) return `${c.name} rests (${lifeState(c)}, no healing): ${c.hp}/${c.maxHp}`;
+  heal(c, c.level);
+  return `${c.name} rests: ${c.hp}/${c.maxHp} hp, ${c.spellSlots} spell slots`;
 }

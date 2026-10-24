@@ -97,7 +97,7 @@ Click a character on the board to target it, then click a button:
 | Button | It writes |
 | --- | --- |
 | ⚔️ Attack | "I attack (target)." or "I attack the nearest enemy." |
-| ✦ Cast | Magic missile for wizards, sorcerers and bards; cure light wounds for clerics and druids. Greyed out with no spell slots left. |
+| ✦ Cast | Magic missile for wizards and sorcerers; cure light wounds for bards, clerics and druids. Greyed out with no spell slots left. |
 | 🔍 Search | "I search the area carefully." |
 | 💬 Talk | "I talk to (target).", and the cursor moves to the 💬 field. |
 
@@ -123,12 +123,15 @@ Every roll appears in the story as a blue 🎲 line, for example `Rowan attacks 
 - **Attack:** d20 + attack bonus against the target's armor class (AC).
   A natural 20 always hits, and a natural 1 always misses.
   A roll in the weapon's threat range can be a critical hit, which multiplies the damage.
-- **Skill check:** d20 + skill and ability bonus against a difficulty class (DC).
+- **Skill check:** d20 + skill ranks + ability bonus against a difficulty class (DC).
+  Each class starts trained in its class skills, for example a rogue in open lock and disable device.
 - **Saving throw:** d20 + Fortitude, Reflex or Will bonus against a DC.
 - **Initiative:** at the start of a fight, everyone rolls to set the turn order.
-- **Spells:** casters have spell slots for the day.
+- **Spells:** casters have spell slots for the day, and each class casts only its own spells.
   Magic missile always hits; cure light wounds heals.
+  A full night's rest in a safe place brings the slots back and heals 1 hp per level.
 - **Hit points:** at 0 hp a character is disabled, below 0 dying, and at -10 dead.
+  A dying character cannot attack or cast.
 
 Hit points, AC and spell slots are on each seat card.
 

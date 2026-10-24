@@ -2,6 +2,8 @@
 // - no built-in tools (no Bash, no file access), only the given in-process MCP server
 // - no user or project settings, so the player's own Claude config never leaks in
 // - "dontAsk": any tool that is not pre-approved is refused, never prompted
+// - strict MCP config: the player's own MCP servers are not loaded
+// - a time limit, so a hung turn never locks the table
 // Auth is the local Claude Code login; no API key is read or stored here.
 import { query, type McpSdkServerConfigWithInstance, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
@@ -17,43 +19,55 @@ export type AgentModel = keyof typeof AGENT_MODELS;
 export const NARRATOR_DEFAULT_MODEL: AgentModel = "opus";
 export const COMPANION_DEFAULT_MODEL: AgentModel = "haiku";
 
-export const isAgentModel = (value: unknown): value is AgentModel => typeof value === "string" && value in AGENT_MODELS;
+export const isAgentModel = (value: unknown): value is AgentModel => typeof value === "string" && Object.hasOwn(AGENT_MODELS, value);
+
+// The conversation an agent resumes on its next turn. runAgentTurn writes the id
+// as soon as the session starts, so a turn that fails or times out keeps it.
+export type AgentSession = { id?: string };
 
 export type AgentTurn = {
   prompt: string;
   systemPrompt: string;
   model: AgentModel;
-  sessionId?: string; // resume this conversation; omit to start a new one
-  toolServerName: string;
+  session: AgentSession;
   toolServer: McpSdkServerConfigWithInstance;
   maxToolTurns: number;
+  timeoutMs: number;
   effort?: "low" | "medium" | "high"; // reasoning effort; omit for the model default
-  abortController?: AbortController;
   onMessage?: (message: SDKMessage) => void;
 };
 
-// Returns the session id, so the caller can resume the same conversation next turn.
-export async function runAgentTurn(turn: AgentTurn): Promise<string | undefined> {
+export class TurnTimeoutError extends Error {}
+
+export async function runAgentTurn(turn: AgentTurn): Promise<void> {
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), turn.timeoutMs);
   const conversation = query({
     prompt: turn.prompt,
     options: {
       model: AGENT_MODELS[turn.model].id,
       systemPrompt: turn.systemPrompt,
-      resume: turn.sessionId,
+      resume: turn.session.id,
       maxTurns: turn.maxToolTurns,
       effort: turn.effort,
       tools: [],
       settingSources: [],
-      mcpServers: { [turn.toolServerName]: turn.toolServer },
-      allowedTools: [`mcp__${turn.toolServerName}`],
+      strictMcpConfig: true,
+      mcpServers: { [turn.toolServer.name]: turn.toolServer },
+      allowedTools: [`mcp__${turn.toolServer.name}`],
       permissionMode: "dontAsk",
-      abortController: turn.abortController,
+      abortController,
     },
   });
-  let sessionId = turn.sessionId;
-  for await (const message of conversation) {
-    if (message.type === "system" && message.subtype === "init") sessionId = message.session_id;
-    turn.onMessage?.(message);
+  try {
+    for await (const message of conversation) {
+      if (message.type === "system" && message.subtype === "init") turn.session.id = message.session_id;
+      turn.onMessage?.(message);
+    }
+  } catch (error) {
+    if (abortController.signal.aborted) throw new TurnTimeoutError(`the turn timed out after ${turn.timeoutMs / 1000} s`);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return sessionId;
 }

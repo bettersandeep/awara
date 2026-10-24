@@ -1,4 +1,4 @@
-// Seeded dice. One generator per campaign, so a run can be replayed from its seed.
+// Seeded dice. One generator per campaign; a seed makes the rules tests repeatable.
 export type Rng = { next: () => number };
 
 // mulberry32: small and fast, good enough for dice.

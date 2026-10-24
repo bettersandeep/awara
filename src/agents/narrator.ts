@@ -6,13 +6,14 @@ import { join } from "node:path";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { Rng } from "../rules/dice.ts";
-import { type Character, armorClass, lifeState } from "../rules/character.ts";
+import { type Character, type Skill, SKILLS, SPELLS, armorClass, lifeState } from "../rules/character.ts";
 import {
-  SPELLS, applyDamage, attack, castSpell, heal, rollInitiative, savingThrow, skillCheck,
+  type CheckResult, applyDamage, attack, castSpell, heal, rest, rollInitiative, savingThrow, skillCheck,
 } from "../rules/engine.ts";
 import { MONSTERS, spawnMonster } from "../rules/monsters.ts";
 import { catalog, type World } from "../scene/world.ts";
-import { type AgentModel, NARRATOR_DEFAULT_MODEL, runAgentTurn } from "./runAgentTurn.ts";
+import { VOICE_CUES } from "../speech/script.ts";
+import { type AgentModel, type AgentSession, NARRATOR_DEFAULT_MODEL, TurnTimeoutError, runAgentTurn } from "./runAgentTurn.ts";
 
 const PROMPT_FILE = join(import.meta.dirname, "..", "..", "personas", "narrator.md");
 const TURN_TIMEOUT_MS = 5 * 60_000;
@@ -35,16 +36,12 @@ export type NarratorHost = {
   setPronunciation: (word: string, sayAs: string) => void;
 };
 
-// The schema stays loose, as with scene_ops; the narrator may also send plain text.
-function readBeats(args: { text?: string; beats?: Array<Record<string, unknown>> }): NarrationBeat[] {
-  const beats = (args.beats ?? [])
-    .filter((beat) => typeof beat.text === "string" && beat.text.trim())
-    .map((beat) => ({
-      text: String(beat.text),
-      speaker: typeof beat.speaker === "string" && beat.speaker.trim() ? beat.speaker.trim() : undefined,
-      gender: typeof beat.gender === "string" ? beat.gender : undefined,
-    }));
-  if (beats.length === 0 && args.text?.trim()) beats.push({ text: args.text, speaker: undefined, gender: undefined });
+// The narrator may send plain text instead of beats.
+function readBeats(args: { text?: string; beats?: NarrationBeat[] }): NarrationBeat[] {
+  const beats: NarrationBeat[] = (args.beats ?? [])
+    .filter((beat) => beat.text.trim())
+    .map((beat) => ({ ...beat, speaker: beat.speaker?.trim() || undefined }));
+  if (beats.length === 0 && args.text?.trim()) beats.push({ text: args.text });
   return beats;
 }
 
@@ -67,6 +64,10 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
     host.log(log, "dice");
     return textResult(log);
   };
+  const logCheck = (result: CheckResult, dc: number) => {
+    host.log(result.log, "dice");
+    return textResult(`${result.success ? "SUCCESS" : "FAIL"} (${result.total} vs DC ${dc})`);
+  };
 
   return createSdkMcpServer({
     name: "dnd",
@@ -76,9 +77,9 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
         "Show and speak story text. Send `beats` in order: a beat without `speaker` is narration; " +
         "a beat with `speaker` is that character's spoken line, written without quote marks, and is spoken in their own voice. " +
         "Give `gender` (female or male) the first time an NPC speaks. " +
-        "Voice cues inside any text: (pause), (long pause), (whisper), (slowly), (quickly), *emphasis*.",
+        `Voice cues inside any text: ${VOICE_CUES}.`,
         {
-          beats: z.array(z.object({ text: z.string(), speaker: z.string().optional(), gender: z.string().optional() }).passthrough()).optional(),
+          beats: z.array(z.object({ text: z.string(), speaker: z.string().optional(), gender: z.string().optional() })).optional(),
           text: z.string().optional(),
         },
         async (args) => {
@@ -114,20 +115,19 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
             return textResult(`REJECTED (nothing applied): ${reason}. Fix that op and resend the whole batch.`);
           }
         }),
-      tool("skill_check", "Roll a skill check for a character.",
-        { characterId: z.string(), skill: z.string(), ability: z.enum(["str", "dex", "con", "int", "wis", "cha"]), dc: z.number() },
-        async (args) => {
-          const result = skillCheck(rng, getCharacter(args.characterId), args.skill, args.ability, args.dc);
-          host.log(result.log, "dice");
-          return textResult(`${result.success ? "SUCCESS" : "FAIL"} (${result.total} vs DC ${args.dc})`);
-        }),
+      tool("skill_check",
+        "Roll an SRD skill check for a character; trained skills add their ranks. The skill sets the ability; " +
+        "give `ability` only to override it. For a plain ability check (break a door), give `ability` and no skill.",
+        {
+          characterId: z.string(),
+          skill: z.enum(Object.keys(SKILLS) as [Skill, ...Skill[]]).optional(),
+          ability: z.enum(["str", "dex", "con", "int", "wis", "cha"]).optional(),
+          dc: z.number().int(),
+        },
+        async (args) => logCheck(skillCheck(rng, getCharacter(args.characterId), args.skill, args.ability, args.dc), args.dc)),
       tool("saving_throw", "Roll a saving throw for a character.",
-        { characterId: z.string(), save: z.enum(["fort", "ref", "will"]), dc: z.number() },
-        async (args) => {
-          const result = savingThrow(rng, getCharacter(args.characterId), args.save, args.dc);
-          host.log(result.log, "dice");
-          return textResult(`${result.success ? "SUCCESS" : "FAIL"} (${result.total} vs DC ${args.dc})`);
-        }),
+        { characterId: z.string(), save: z.enum(["fort", "ref", "will"]), dc: z.number().int() },
+        async (args) => logCheck(savingThrow(rng, getCharacter(args.characterId), args.save, args.dc), args.dc)),
       tool("attack", "Resolve one attack. Handles to-hit, crits, damage and hp.",
         { attackerId: z.string(), targetId: z.string() },
         async (args) => logRoll(attack(rng, getCharacter(args.attackerId), getCharacter(args.targetId)).log)),
@@ -142,7 +142,7 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
           return textResult(result.order.join(","));
         }),
       tool("damage_or_heal", "Apply damage without an attack roll (traps, falls) or healing. Positive amount = damage.",
-        { characterId: z.string(), amount: z.number(), reason: z.string() },
+        { characterId: z.string(), amount: z.number().int(), reason: z.string() },
         async (args) => {
           const character = getCharacter(args.characterId);
           if (args.amount >= 0) applyDamage(character, args.amount);
@@ -150,6 +150,9 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
           const verb = args.amount >= 0 ? "takes" : "recovers";
           return logRoll(`${character.name} ${verb} ${Math.abs(args.amount)} (${args.reason}): ${character.hp}/${character.maxHp} ${lifeState(character)}`);
         }),
+      tool("rest", "A full night's rest (8 hours) in a safe place: restores spell slots and heals 1 hp per level.",
+        { characterIds: z.array(z.string()) },
+        async (args) => logRoll(args.characterIds.map((id) => rest(getCharacter(id))).join("; "))),
       tool("set_pronunciation",
         "Teach the voice how to say an invented name. sayAs is a plain English respelling, not IPA. Example: word Hrothgar, sayAs Roth-gar.",
         { word: z.string(), sayAs: z.string() },
@@ -195,28 +198,26 @@ function buildSystemPrompt(characters: Record<string, Character>, playerId: stri
     `End every turn with narrate() describing what ${player.name} can do or see next.`,
     "Your final text reply is not shown to anyone; all player-visible output goes through narrate().",
   ].join("\n");
-  return readFileSync(PROMPT_FILE, "utf8").replace("{{CATALOG_AND_PARTY}}", injected);
+  return readFileSync(PROMPT_FILE, "utf8")
+    .replace("{{VOICE_CUES}}", VOICE_CUES)
+    .replace("{{CATALOG_AND_PARTY}}", injected);
 }
 
 export function createNarrator(host: NarratorHost, characters: Record<string, Character>, rng: Rng, playerId: string) {
   const toolServer = createToolServer(host, characters, rng);
   const systemPrompt = buildSystemPrompt(characters, playerId);
-  let sessionId: string | undefined;
+  const session: AgentSession = {};
   let model: AgentModel = NARRATOR_DEFAULT_MODEL;
 
   return {
-    get model() { return model; },
     setModel(newModel: AgentModel) { model = newModel; },
 
     async takeTurn(prompt: string): Promise<void> {
-      // A hung turn must never lock the table.
-      const abortController = new AbortController();
-      const timeout = setTimeout(() => abortController.abort(), TURN_TIMEOUT_MS);
       let announcedWorldBuilding = false;
       try {
-        sessionId = await runAgentTurn({
-          prompt, systemPrompt, model, sessionId, abortController, effort: NARRATOR_EFFORT,
-          toolServerName: "dnd", toolServer, maxToolTurns: MAX_TOOL_TURNS,
+        await runAgentTurn({
+          prompt, systemPrompt, model, session, effort: NARRATOR_EFFORT,
+          toolServer, maxToolTurns: MAX_TOOL_TURNS, timeoutMs: TURN_TIMEOUT_MS,
           onMessage(message) {
             if (message.type === "assistant" && !announcedWorldBuilding) {
               const buildsScene = message.message.content.some((block) => block.type === "tool_use" && block.name.endsWith("scene_ops"));
@@ -232,11 +233,10 @@ export function createNarrator(host: NarratorHost, characters: Record<string, Ch
           },
         });
       } catch (error) {
-        if (!abortController.signal.aborted) throw error;
-        console.error(`narrator turn timed out after ${TURN_TIMEOUT_MS / 1000} s`);
+        // A timeout is not fatal: the caller may still send a corrective turn.
+        if (!(error instanceof TurnTimeoutError)) throw error;
+        console.error(`narrator: ${error.message}`);
         host.log("The narrator timed out. Try your action again.", "system");
-      } finally {
-        clearTimeout(timeout);
       }
     },
   };

@@ -35,7 +35,6 @@ export const MONSTERS: Record<string, MonsterTemplate> = {
 };
 
 export function spawnMonster(rng: Rng, id: string, name: string, kind: string): Character {
-  const template = MONSTERS[kind];
-  if (!template) throw new Error(`unknown monster kind "${kind}". Valid: ${Object.keys(MONSTERS).join(", ")}`);
-  return makeCharacter(rng, { id, name, ...template, abilities: { ...template.abilities } });
+  if (!Object.hasOwn(MONSTERS, kind)) throw new Error(`unknown monster kind "${kind}". Valid: ${Object.keys(MONSTERS).join(", ")}`);
+  return makeCharacter(rng, { id, name, ...MONSTERS[kind] });
 }

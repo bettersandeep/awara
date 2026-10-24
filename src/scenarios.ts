@@ -59,6 +59,6 @@ export const SCENARIOS: Record<string, Scenario> = {
 
 // An unknown or empty key means "surprise me".
 export function chooseScenario(rng: Rng, key: unknown): Scenario {
-  if (typeof key === "string" && SCENARIOS[key]) return SCENARIOS[key];
+  if (typeof key === "string" && Object.hasOwn(SCENARIOS, key)) return SCENARIOS[key];
   return pickRandom(rng, Object.values(SCENARIOS));
 }
