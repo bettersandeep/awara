@@ -23,5 +23,8 @@
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
   }
 }
