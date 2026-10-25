@@ -34,8 +34,12 @@ Then read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-ste
 
 ## Requirements
 
+A 67-second video shows the whole setup, with sound:
+
+https://github.com/user-attachments/assets/00887afb-d882-412f-b845-4d0a941ddd16
+
 - Node.js 24 or later (it runs TypeScript directly).
-- Claude Code, logged in on this machine.
+- Claude Code, logged in on this machine (`claude auth login`).
   The agents use that login, so no API key is necessary.
   Opus 5.5 needs `@anthropic-ai/claude-agent-sdk` 0.3.296 or newer, which `npm install` provides.
 

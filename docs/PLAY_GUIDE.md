@@ -14,12 +14,18 @@ The waits for the AI turns are sped up in the video.
 
 ## Start the game
 
+Watch the setup, with sound (67 seconds):
+
+https://github.com/user-attachments/assets/00887afb-d882-412f-b845-4d0a941ddd16
+
 1. Install Node.js 24 or later.
-2. Log in to Claude Code on this computer.
+2. Log in to Claude Code on this computer: run `claude auth login`.
    The agents use that login, so you do not need an API key.
-3. In the project folder, run:
+3. Get the game and start it:
 
    ```sh
+   git clone https://github.com/bettersandeep/awara.git
+   cd awara
    npm install
    npm start
    ```
