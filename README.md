@@ -12,6 +12,10 @@ New players: watch the full game with sound (79 seconds) here:
 
 https://github.com/user-attachments/assets/cf7b27f2-440a-4625-8bb6-4ffec92930e0
 
+Learn the rules in a narrated walkthrough (2 minutes 42 seconds):
+
+https://github.com/user-attachments/assets/7a2992ca-5160-4974-862c-68cb48083678
+
 Then read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-step instructions.
 
 ## The board

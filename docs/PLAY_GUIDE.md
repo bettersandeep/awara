@@ -12,6 +12,12 @@ https://github.com/user-attachments/assets/cf7b27f2-440a-4625-8bb6-4ffec92930e0
 A 79-second game with sound: character creation, the opening scene, the spoken story with its highlight, one round, and a fight.
 The waits for the AI turns are sped up in the video.
 
+## Learn the rules
+
+https://github.com/user-attachments/assets/7a2992ca-5160-4974-862c-68cb48083678
+
+A narrated walkthrough (2 minutes 42 seconds): the table, a round, d20 checks, attacks and saving throws, hit points, spells, the seats and the board look.
+
 ## Start the game
 
 Watch the setup, with sound (67 seconds):
