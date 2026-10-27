@@ -6,13 +6,14 @@ import { join } from "node:path";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { Rng } from "../rules/dice.ts";
-import { type Character, type Skill, SKILLS, SPELLS, armorClass, lifeState } from "../rules/character.ts";
+import { type Character, type Skill, type Spell, SKILLS, SPELLS, WEAPONS, armorClass, lifeState } from "../rules/character.ts";
 import {
   type CheckResult, applyDamage, attack, castSpell, heal, rest, rollInitiative, savingThrow, skillCheck,
 } from "../rules/engine.ts";
 import { MONSTERS, spawnMonster } from "../rules/monsters.ts";
 import { catalog, type World } from "../scene/world.ts";
 import { VOICE_CUES } from "../speech/script.ts";
+import { MOTION_HELP } from "../motions.ts";
 import { type AgentModel, type AgentSession, NARRATOR_DEFAULT_MODEL, TurnTimeoutError, runAgentTurn } from "./runAgentTurn.ts";
 
 const PROMPT_FILE = join(import.meta.dirname, "..", "..", "personas", "narrator.md");
@@ -23,14 +24,25 @@ const TARGET_NARRATION_WORDS = 80;
 const MAX_NARRATION_WORDS = 120;
 const NARRATOR_EFFORT = "low";
 
+// A motion as the narrator wrote it; the session checks the id and the action.
+export type RawMotion = { id: string; action: string; target?: string };
+
 // One part of a narration: plain narration, or one character's spoken line.
-export type NarrationBeat = { text: string; speaker?: string; gender?: string };
+export type NarrationBeat = { text: string; speaker?: string; gender?: string; motions?: RawMotion[] };
+
+// What the rules engine just resolved, so the board can show it. Ids are character ids.
+export type BoardEffect =
+  | { kind: "attack"; attacker: string; target: string; hit: boolean; crit: boolean; damage: number; ranged: boolean }
+  | { kind: "spell"; spell: Spell; caster: string; target: string; success: boolean; amount: number }
+  | { kind: "damage" | "heal"; target: string; amount: number }
+  | { kind: "rest"; ids: string[] };
 
 // What the narrator needs from the game session.
 export type NarratorHost = {
   world: World;
   applySceneOps: (rawOps: unknown[]) => void;
-  narrate: (beats: NarrationBeat[]) => void;
+  narrate: (beats: NarrationBeat[]) => string[]; // returns notes on motions it skipped
+  effect: (effect: BoardEffect) => void;
   log: (text: string, kind: "dice" | "system") => void;
   setObjective: (text: string) => void;
   setPronunciation: (word: string, sayAs: string) => void;
@@ -77,9 +89,14 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
         "Show and speak story text. Send `beats` in order: a beat without `speaker` is narration; " +
         "a beat with `speaker` is that character's spoken line, written without quote marks, and is spoken in their own voice. " +
         "Give `gender` (female or male) the first time an NPC speaks. " +
-        `Voice cues inside any text: ${VOICE_CUES}.`,
+        `Voice cues inside any text: ${VOICE_CUES}. ` +
+        "Give a beat `motions` when a being on the map visibly moves in it: [{id, action, target?}]; " +
+        `id and target are sprite ids or names; actions: ${MOTION_HELP}. The board plays them as the beat is spoken.`,
         {
-          beats: z.array(z.object({ text: z.string(), speaker: z.string().optional(), gender: z.string().optional() })).optional(),
+          beats: z.array(z.object({
+            text: z.string(), speaker: z.string().optional(), gender: z.string().optional(),
+            motions: z.array(z.object({ id: z.string(), action: z.string(), target: z.string().optional() })).optional(),
+          })).optional(),
           text: z.string().optional(),
         },
         async (args) => {
@@ -92,13 +109,14 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
               `REJECTED (not shown): ${words} words. The limit is ${MAX_NARRATION_WORDS}; aim for ${TARGET_NARRATION_WORDS}. ` +
               "Keep the one most important moment and the choices, cut the rest, and send it again.");
           }
-          host.narrate(beats);
+          const skipped = host.narrate(beats);
           // Echo what the map shows, so the narrator draws anything it just described.
           const map = host.world.maps[host.world.currentMap];
           const visible = map ? map.sprites.map((s) => s.id).join(", ") : "NOTHING";
           return textResult(
             `shown. Map "${host.world.currentMap}" currently shows ${visible}. ` +
-            "If your narration mentioned any visible being not in that list, add its sprite NOW (spawn_monster first if it can fight).",
+            "If your narration mentioned any visible being not in that list, add its sprite NOW (spawn_monster first if it can fight)." +
+            (skipped.length ? ` Motions skipped: ${skipped.join("; ")}.` : ""),
           );
         }),
       // The schema stays loose on purpose: sceneOps.ts translates and validates.
@@ -130,10 +148,22 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
         async (args) => logCheck(savingThrow(rng, getCharacter(args.characterId), args.save, args.dc), args.dc)),
       tool("attack", "Resolve one attack. Handles to-hit, crits, damage and hp.",
         { attackerId: z.string(), targetId: z.string() },
-        async (args) => logRoll(attack(rng, getCharacter(args.attackerId), getCharacter(args.targetId)).log)),
+        async (args) => {
+          const attacker = getCharacter(args.attackerId);
+          const result = attack(rng, attacker, getCharacter(args.targetId));
+          const reply = logRoll(result.log);
+          const { hit, crit, damage } = result;
+          host.effect({ kind: "attack", attacker: args.attackerId, target: args.targetId, hit, crit, damage, ranged: Boolean(WEAPONS[attacker.weapon].ranged) });
+          return reply;
+        }),
       tool("cast_spell", "Cast a spell using one spell slot.",
         { casterId: z.string(), spell: z.enum(SPELLS), targetId: z.string() },
-        async (args) => logRoll(castSpell(rng, getCharacter(args.casterId), args.spell, getCharacter(args.targetId)).log)),
+        async (args) => {
+          const result = castSpell(rng, getCharacter(args.casterId), args.spell, getCharacter(args.targetId));
+          const reply = logRoll(result.log);
+          host.effect({ kind: "spell", spell: args.spell, caster: args.casterId, target: args.targetId, success: result.success, amount: result.amount });
+          return reply;
+        }),
       tool("roll_initiative", "Roll initiative. Returns the turn order.",
         { characterIds: z.array(z.string()) },
         async (args) => {
@@ -148,11 +178,17 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
           if (args.amount >= 0) applyDamage(character, args.amount);
           else heal(character, -args.amount);
           const verb = args.amount >= 0 ? "takes" : "recovers";
-          return logRoll(`${character.name} ${verb} ${Math.abs(args.amount)} (${args.reason}): ${character.hp}/${character.maxHp} ${lifeState(character)}`);
+          const reply = logRoll(`${character.name} ${verb} ${Math.abs(args.amount)} (${args.reason}): ${character.hp}/${character.maxHp} ${lifeState(character)}`);
+          host.effect({ kind: args.amount >= 0 ? "damage" : "heal", target: args.characterId, amount: Math.abs(args.amount) });
+          return reply;
         }),
       tool("rest", "A full night's rest (8 hours) in a safe place: restores spell slots and heals 1 hp per level.",
         { characterIds: z.array(z.string()) },
-        async (args) => logRoll(args.characterIds.map((id) => rest(getCharacter(id))).join("; "))),
+        async (args) => {
+          const reply = logRoll(args.characterIds.map((id) => rest(getCharacter(id))).join("; "));
+          host.effect({ kind: "rest", ids: args.characterIds });
+          return reply;
+        }),
       tool("set_pronunciation",
         "Teach the voice how to say an invented name. sayAs is a plain English respelling, not IPA. Example: word Hrothgar, sayAs Roth-gar.",
         { word: z.string(), sayAs: z.string() },
@@ -200,6 +236,7 @@ function buildSystemPrompt(characters: Record<string, Character>, playerId: stri
   ].join("\n");
   return readFileSync(PROMPT_FILE, "utf8")
     .replace("{{VOICE_CUES}}", VOICE_CUES)
+    .replace("{{MOTIONS}}", MOTION_HELP)
     .replace("{{CATALOG_AND_PARTY}}", injected);
 }
 

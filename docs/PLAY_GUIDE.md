@@ -157,6 +157,17 @@ Hit points, AC and spell slots are on each seat card.
 
 The voice runs on your computer, so the speech can arrive a few seconds after the text.
 
+## Board style
+
+The button next to the speaker in the side panel switches the board between two styles.
+The game continues; the page reloads and the server shows the same table again.
+
+- **✨ webgl** (default): characters walk tile by tile around walls, breathe while they wait, lunge and flinch in combat, and act out what the narrator describes as the voice speaks it.
+  Spells fly as glowing missiles, healing sparkles, and the light flickers softly.
+- **▦ canvas**: the first, simpler board, with stepped pixel light.
+
+You can also open http://localhost:8420/?board=canvas or ?board=webgl.
+
 ## Seats, models and voices
 
 ![A seat card: hit points, armor class, powers, model and voice](screenshots/06-seat-card.png)

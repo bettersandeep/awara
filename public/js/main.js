@@ -8,6 +8,11 @@ import { showCharacterCreation } from "./characterCreation.js";
 import { createQuickActions } from "./quickActions.js";
 
 const RECONNECT_DELAY_MS = 2000;
+const BOARD_STYLE_KEY = "awara.board";
+const BOARD_STYLES = { webgl: "✨ webgl", canvas: "▦ canvas" };
+// Story motions follow the voice. Without it they play one beat after another.
+const BEAT_SECONDS_WITHOUT_VOICE = 1.6;
+const VOICE_WAIT_MS = 8000; // a clip that has not arrived by then plays its motions without the voice
 
 const catalog = await fetch("catalog.json").then((response) => response.json());
 
@@ -23,7 +28,8 @@ let busyTimer = null;
 
 const send = (message) => socket.send(JSON.stringify(message));
 
-const board = createBoard(document.getElementById("board"), catalog, { onSelectSprite: (sprite) => selectTarget(sprite) });
+const boardStyle = readBoardStyle();
+const board = await createChosenBoard(boardStyle);
 const seats = createSeats({ catalog, onSeatChange: (seat, change) => send({ type: "seat", seat, ...change }) });
 const speech = createSpeech({
   onSpeakerChange: (speaker, isSpeaking) => seats.setSpeaking(speaker, isSpeaking),
@@ -32,7 +38,75 @@ const speech = createSpeech({
 const storyLog = createStoryLog(document.getElementById("story-log"), {
   nameOf: (id) => party?.members.find((member) => member.id === id)?.name ?? id,
   onReplay: (audioId, speaker) => speech.playNow(audioId, speaker),
+  onPieceSpoken: (logIndex, pieceIndex) => playMotionsUpTo(logIndex, pieceIndex),
 });
+
+// The board style comes from ?board=webgl|canvas, then the last choice, then WebGL.
+// Without WebGL in the browser, the canvas board is used.
+function readBoardStyle() {
+  const fromUrl = new URLSearchParams(location.search).get("board");
+  let saved = null;
+  try {
+    saved = localStorage.getItem(BOARD_STYLE_KEY);
+  } catch {}
+  return [fromUrl, saved].find((style) => Object.hasOwn(BOARD_STYLES, style ?? "")) ?? "webgl";
+}
+
+async function createChosenBoard(style) {
+  const options = { onSelectSprite: (sprite) => selectTarget(sprite) };
+  if (style === "webgl") {
+    try {
+      const { createWebglBoard } = await import("./boardWebgl.js");
+      return await createWebglBoard(document.getElementById("board-frame"), catalog, options);
+    } catch (error) {
+      console.warn("WebGL board failed, using the canvas board:", error);
+    }
+  }
+  return createBoard(document.getElementById("board"), catalog, options);
+}
+
+const boardToggle = document.getElementById("board-toggle");
+boardToggle.textContent = BOARD_STYLES[boardStyle];
+boardToggle.onclick = () => {
+  try {
+    localStorage.setItem(BOARD_STYLE_KEY, boardStyle === "webgl" ? "canvas" : "webgl");
+  } catch {}
+  // The server replays the game to every new page, so a reload keeps the game.
+  location.href = location.pathname;
+};
+
+// logIndex -> { pieces, played: Set of piece indexes, fallback timer }
+const storyMotions = new Map();
+
+function playPieceMotions(record, index) {
+  if (record.played.has(index) || !record.pieces[index]?.motions) return;
+  record.played.add(index);
+  board.playMotions?.(record.pieces[index].motions);
+}
+
+function playMotionsUpTo(logIndex, pieceIndex) {
+  const record = storyMotions.get(logIndex);
+  if (!record) return;
+  clearTimeout(record.fallback);
+  for (let i = 0; i <= pieceIndex; i++) playPieceMotions(record, i);
+}
+
+function playMotionsWithoutVoice(record) {
+  let beat = 0;
+  record.pieces.forEach((piece, index) => {
+    if (!piece.motions || record.played.has(index)) return;
+    setTimeout(() => playPieceMotions(record, index), beat * BEAT_SECONDS_WITHOUT_VOICE * 1000);
+    beat++;
+  });
+}
+
+function scheduleStoryMotions(entry) {
+  if (entry.replay || !entry.pieces?.some((piece) => piece.motions)) return;
+  const record = { pieces: entry.pieces, played: new Set() };
+  storyMotions.set(entry.logIndex, record);
+  if (speech.isAutoplay()) record.fallback = setTimeout(() => playMotionsWithoutVoice(record), VOICE_WAIT_MS);
+  else playMotionsWithoutVoice(record);
+}
 
 const quickActions = createQuickActions({
   doInput,
@@ -69,8 +143,8 @@ function setBusy(busy) {
 }
 
 const messageHandlers = {
-  world({ map, health }) {
-    board.showMap(map, health);
+  world({ map, health, states }) {
+    board.showMap(map, health, states);
     // A target that left the board (or died) is no longer a target.
     if (targetId && !map?.sprites.some((sprite) => sprite.id === targetId)) selectTarget(null);
     mapName.textContent = map ? map.name : "Awara";
@@ -82,7 +156,11 @@ const messageHandlers = {
     quickActions.setPlayer(party.members.find((member) => member.isPlayer));
     if (!doInput.disabled) doInput.placeholder = actionPrompt();
   },
-  log: (entry) => storyLog.add(entry),
+  log(entry) {
+    storyLog.add(entry);
+    scheduleStoryMotions(entry);
+  },
+  effect: (effect) => board.playEffect?.(effect),
   audio({ audioId, timings, speaker, logIndex }) {
     storyLog.attachAudio(logIndex, audioId, timings, speaker);
     speech.clipReady(audioId, speaker);

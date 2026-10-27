@@ -10,6 +10,7 @@
 //   *words*                           emphasis: a short beat, then slower words
 // Models also invent stage directions such as "(quietly)" or "(firmly)". Known
 // synonyms map to a cue; any other short direction is shown as a tag, not spoken.
+import type { Motion } from "../motions.ts";
 import type { Voice } from "./voices.ts";
 
 // Silence after each kind of break, in milliseconds. Tune these by ear.
@@ -41,6 +42,7 @@ export type Beat = {
   text: string;
   voice: Voice;
   speaker?: string; // display label for a character's line inside the narration
+  motions?: Motion[]; // played on the board when this beat is spoken
 };
 
 export type SpeechPiece = {
@@ -56,6 +58,7 @@ export type SpeechPiece = {
   emphasis?: boolean;
   pronunciations?: Record<string, string>; // word -> how it is said, for the hover hint
   breakAfter?: boolean; // paragraph end
+  motions?: Motion[]; // set on the first piece of a beat
 };
 
 type Cue = "pause" | "long pause" | StyleCue;
@@ -202,6 +205,7 @@ export function buildSpeechPieces(beats: Beat[], pronunciations: Map<string, str
   const pieces: SpeechPiece[] = [];
   for (const beat of beats) {
     const beatPieces = piecesForBeat(beat, pronunciations);
+    if (beat.motions?.length && beatPieces.length > 0) beatPieces[0].motions = beat.motions;
     const previous = pieces[pieces.length - 1];
     if (previous && beatPieces.length > 0 && beatPieces[0].voice !== previous.voice) {
       previous.pauseAfterMs = Math.max(previous.pauseAfterMs, PAUSE_MS.speakerChange);

@@ -37,6 +37,7 @@ export function createSpeech({ onSpeakerChange, onPosition }) {
   }
 
   return {
+    isAutoplay: () => autoplay,
     toggleAutoplay() {
       autoplay = !autoplay;
       if (!autoplay) {
