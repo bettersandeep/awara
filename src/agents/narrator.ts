@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { Rng } from "../rules/dice.ts";
-import { type Character, type Skill, type Spell, SKILLS, SPELLS, WEAPONS, armorClass, lifeState } from "../rules/character.ts";
+import { type Character, type Skill, type Spell, SKILLS, SPELLS, WEAPONS, armorClass, canAct, lifeState } from "../rules/character.ts";
 import {
   type CheckResult, applyDamage, attack, castSpell, heal, rest, rollInitiative, savingThrow, skillCheck,
 } from "../rules/engine.ts";
@@ -25,7 +25,7 @@ const MAX_NARRATION_WORDS = 120;
 const NARRATOR_EFFORT = "low";
 
 // A motion as the narrator wrote it; the session checks the id and the action.
-export type RawMotion = { id: string; action: string; target?: string };
+type RawMotion = { id: string; action: string; target?: string };
 
 // One part of a narration: plain narration, or one character's spoken line.
 export type NarrationBeat = { text: string; speaker?: string; gender?: string; motions?: RawMotion[] };
@@ -33,7 +33,7 @@ export type NarrationBeat = { text: string; speaker?: string; gender?: string; m
 // What the rules engine just resolved, so the board can show it. Ids are character ids.
 export type BoardEffect =
   | { kind: "attack"; attacker: string; target: string; hit: boolean; crit: boolean; damage: number; ranged: boolean }
-  | { kind: "spell"; spell: Spell; caster: string; target: string; success: boolean; amount: number }
+  | { kind: "spell"; spell: Spell; caster: string; target: string; success: boolean; amount: number; missiles: number }
   | { kind: "damage" | "heal"; target: string; amount: number }
   | { kind: "rest"; ids: string[] };
 
@@ -153,7 +153,8 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
           const result = attack(rng, attacker, getCharacter(args.targetId));
           const reply = logRoll(result.log);
           const { hit, crit, damage } = result;
-          host.effect({ kind: "attack", attacker: args.attackerId, target: args.targetId, hit, crit, damage, ranged: Boolean(WEAPONS[attacker.weapon].ranged) });
+          // An attacker who cannot act made no attack, so the board shows nothing.
+          if (canAct(attacker)) host.effect({ kind: "attack", attacker: args.attackerId, target: args.targetId, hit, crit, damage, ranged: Boolean(WEAPONS[attacker.weapon].ranged) });
           return reply;
         }),
       tool("cast_spell", "Cast a spell using one spell slot.",
@@ -161,7 +162,7 @@ function createToolServer(host: NarratorHost, characters: Record<string, Charact
         async (args) => {
           const result = castSpell(rng, getCharacter(args.casterId), args.spell, getCharacter(args.targetId));
           const reply = logRoll(result.log);
-          host.effect({ kind: "spell", spell: args.spell, caster: args.casterId, target: args.targetId, success: result.success, amount: result.amount });
+          host.effect({ kind: "spell", spell: args.spell, caster: args.casterId, target: args.targetId, success: result.success, amount: result.amount, missiles: result.missiles ?? 0 });
           return reply;
         }),
       tool("roll_initiative", "Roll initiative. Returns the turn order.",

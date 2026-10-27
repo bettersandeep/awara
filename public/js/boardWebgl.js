@@ -25,37 +25,40 @@ const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const bump = (p) => Math.sin(Math.PI * clamp(p));
 const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2);
 
-// Each motion: seconds, and how it moves the body at progress p (0..1).
+// Each body motion: how long it lasts, and how it moves the body at progress p (0..1).
+// These are the board's own motions; src/motions.ts lists the ones the narrator may use.
 // `out` holds offsets in tile pixels: x, y, sx, sy, rot, alpha, flash, aura.
-const MOTIONS = {
-  talk: [0.7, (p, out) => { out.y -= Math.abs(Math.sin(p * 3 * Math.PI)) * 1.5; out.sy += Math.sin(p * 6 * Math.PI) * 0.03; }],
-  lunge: [0.42, (p, out, m) => {
+const BODY_MOTIONS = {
+  talk: { seconds: 0.7, move: (p, out) => { out.y -= Math.abs(Math.sin(p * 3 * Math.PI)) * 1.5; out.sy += Math.sin(p * 6 * Math.PI) * 0.03; } },
+  lunge: { seconds: 0.42, move: (p, out, m) => {
     const e = p < 0.35 ? 1 - (1 - p / 0.35) ** 3 : 1 - ease((p - 0.35) / 0.65);
     out.x += m.dir.x * 14 * e; out.y += m.dir.y * 14 * e; out.sx += 0.08 * e;
-  }],
-  recoil: [0.25, (p, out, m) => { out.x -= m.dir.x * 3 * bump(p); out.y -= m.dir.y * 3 * bump(p); }],
-  hurt: [0.4, (p, out) => { out.x += Math.sin(p * 45) * 2.5 * (1 - p); out.flash = Math.max(out.flash, 1 - p); }],
-  dodge: [0.35, (p, out, m) => { out.x -= m.dir.y * 7 * bump(p); out.y += m.dir.x * 7 * bump(p) - 2 * bump(p); }],
-  jump: [0.5, (p, out) => { out.y -= bump(p) * 14; out.sy += p < 0.12 || p > 0.88 ? -0.12 : 0.06; }],
-  cheer: [0.85, (p, out) => { out.y -= Math.abs(Math.sin(p * 2 * Math.PI)) * 8; out.rot += Math.sin(p * 4 * Math.PI) * 0.12; }],
-  cower: [1.0, (p, out) => { out.sy -= 0.18 * bump(p); out.sx += 0.06 * bump(p); out.x += Math.sin(p * 55) * 0.9 * bump(p); }],
-  shake: [0.7, (p, out) => { out.x += Math.sin(p * 60) * 1.8 * (1 - p); out.rot += Math.sin(p * 40) * 0.05 * (1 - p); }],
-  bow: [0.9, (p, out, m) => { out.rot += 0.4 * bump(p) * m.facing; out.sy -= 0.08 * bump(p); }],
-  spin: [0.6, (p, out) => { out.sx *= Math.cos(2 * Math.PI * p); }],
-  sneak: [1.8, (p, out) => { out.sy -= 0.14 * bump(p); out.alpha *= 1 - 0.45 * bump(p); }],
-  glow: [1.4, (p, out) => { out.aura = Math.max(out.aura, bump(p)); out.y -= bump(p) * 2; }],
-  vanish: [2.2, (p, out) => { out.alpha *= p < 0.25 ? 1 - p / 0.25 : p > 0.8 ? (p - 0.8) / 0.2 : 0; }],
-  appear: [0.6, (p, out) => { out.alpha *= p; out.y -= (1 - ease(p)) * 18; }],
-  land: [0.12, (p, out) => { out.sy -= 0.14 * bump(p); out.sx += 0.1 * bump(p); }],
+  } },
+  recoil: { seconds: 0.25, move: (p, out, m) => { out.x -= m.dir.x * 3 * bump(p); out.y -= m.dir.y * 3 * bump(p); } },
+  hurt: { seconds: 0.4, move: (p, out) => { out.x += Math.sin(p * 45) * 2.5 * (1 - p); out.flash = Math.max(out.flash, 1 - p); } },
+  dodge: { seconds: 0.35, move: (p, out, m) => { out.x -= m.dir.y * 7 * bump(p); out.y += m.dir.x * 7 * bump(p) - 2 * bump(p); } },
+  jump: { seconds: 0.5, move: (p, out) => { out.y -= bump(p) * 14; out.sy += p < 0.12 || p > 0.88 ? -0.12 : 0.06; } },
+  cheer: { seconds: 0.85, move: (p, out) => { out.y -= Math.abs(Math.sin(p * 2 * Math.PI)) * 8; out.rot += Math.sin(p * 4 * Math.PI) * 0.12; } },
+  cower: { seconds: 1.0, move: (p, out) => { out.sy -= 0.18 * bump(p); out.sx += 0.06 * bump(p); out.x += Math.sin(p * 55) * 0.9 * bump(p); } },
+  shake: { seconds: 0.7, move: (p, out) => { out.x += Math.sin(p * 60) * 1.8 * (1 - p); out.rot += Math.sin(p * 40) * 0.05 * (1 - p); } },
+  bow: { seconds: 0.9, move: (p, out, m) => { out.rot += 0.4 * bump(p) * m.facing; out.sy -= 0.08 * bump(p); } },
+  spin: { seconds: 0.6, move: (p, out) => { out.sx *= Math.cos(2 * Math.PI * p); } },
+  sneak: { seconds: 1.8, move: (p, out) => { out.sy -= 0.14 * bump(p); out.alpha *= 1 - 0.45 * bump(p); } },
+  glow: { seconds: 1.4, move: (p, out) => { out.aura = Math.max(out.aura, bump(p)); out.y -= bump(p) * 2; } },
+  vanish: { seconds: 2.2, move: (p, out) => { out.alpha *= p < 0.25 ? 1 - p / 0.25 : p > 0.8 ? (p - 0.8) / 0.2 : 0; } },
+  appear: { seconds: 0.6, move: (p, out) => { out.alpha *= p; out.y -= (1 - ease(p)) * 18; } },
+  land: { seconds: 0.12, move: (p, out) => { out.sy -= 0.14 * bump(p); out.sx += 0.1 * bump(p); } },
 };
 
 // look: "smooth" (soft light), or a dither look from boardDither.js
 // motion: "hop" (a hop per tile) or "glide" (one eased glide along the whole path)
-export async function createWebglBoard(frame, catalog, { onSelectSprite, look = "smooth", motion = "hop" }) {
+export async function createWebglBoard(frame, catalog, { onSelectSprite, look, motion }) {
   let motionStyle = motion;
   TextureSource.defaultOptions.scaleMode = "nearest";
   const app = new Application();
-  await app.init({ width: 64, height: 64, background: 0x000000, antialias: false, resolution: window.devicePixelRatio || 1, autoDensity: true, preference: "webgl" });
+  await app.init({ width: 64, height: 64, background: 0x000000, antialias: false, resolution: window.devicePixelRatio || 1, autoDensity: true, preference: ["webgl"] });
+  // Only WebGL: on WebGPU or canvas the dither filters would not run, and main.js
+  // falls back to the canvas board when this throws.
   const canvas = app.canvas;
   canvas.id = "board-webgl";
   canvas.hidden = true;
@@ -83,6 +86,8 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
   const lightSprite = new Sprite();
   lightSprite.blendMode = "multiply";
   const glows = new Container(); // added after the light: flames, magic and sparkles shine
+  const flameGlows = new Container(); // rebuilt with the lights
+  glows.addChild(flameGlows);
   world.addChild(floor, props, actorsLayer, effects, lightSprite, glows);
   const overlay = new Container(); // screen space: names, bars, numbers, selection
   const selection = new Graphics();
@@ -90,11 +95,12 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
   overlay.addChild(selection);
   app.stage.addChild(world, overlay, iris);
   // Dithered light replaces the smooth light map; duotone and palette dither the whole lit board.
-  // Filters are kept once built, so switching back does not compile a shader again.
-  const ditherFilters = new Map();
-  let dither = null;
+  // One filter serves every dither look; only its uniforms change.
+  let ditherFilter = null;
+  let dither = null; // the filter in use, or null for the smooth look
   function setLook(next) {
-    dither = next === "smooth" ? null : ditherFilters.get(next) ?? ditherFilters.set(next, createDitherFilter(next)).get(next);
+    if (next !== "smooth") (ditherFilter ??= createDitherFilter()).setLook(next);
+    dither = next === "smooth" ? null : ditherFilter;
     const isLightOnly = next === "dither-light";
     lightSprite.blendMode = isLightOnly ? "normal" : "multiply"; // with the filter, the filter multiplies
     lightSprite.filters = isLightOnly ? [dither] : null;
@@ -110,7 +116,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
   let irisStart = -1;
   let now = 0;
   const actors = new Map(); // sprite id -> actor
-  const propSprites = []; // { sprite, art, x, y, seed, born }
+  const propSprites = []; // { sprite, art, seed, born }
   const lights = []; // { sprite, glow?, x, y, radius, tint, alpha, seed, actorId? }
   const particles = [];
   const timers = [];
@@ -152,7 +158,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
 
   function rebuildLights() {
     lightScene.removeChildren().forEach((c) => c.destroy());
-    glows.children.filter((c) => c.isFlameGlow).forEach((c) => c.destroy());
+    flameGlows.removeChildren().forEach((c) => c.destroy());
     lights.length = 0;
     for (const prop of map.props) {
       const kind = LIGHTS[prop.type];
@@ -161,8 +167,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
       glow.anchor.set(0.5);
       glow.blendMode = "add";
       glow.tint = 0xff8a30;
-      glow.isFlameGlow = true;
-      glows.addChild(glow);
+      flameGlows.addChild(glow);
       addLight({ x: prop.x + 0.5, y: prop.y + 0.5, ...kind, glow, seed: cellHash(prop.x, prop.y) % 100 });
     }
     for (const id of partyIds) if (actors.has(id)) addLight({ ...LIGHTS.party, actorId: id, seed: 0 });
@@ -193,7 +198,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
 
   // ---- actors ----
 
-  function createActor(sprite, appear) {
+  function createActor(sprite, appearDelay) {
     const art = catalog.sprites[sprite.key];
     const root = new Container();
     const shadow = new Graphics().ellipse(0, -3, 10, 3.5).fill({ color: 0x000000, alpha: 0.38 });
@@ -218,12 +223,12 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     overlay.addChild(tagBack, tag, bar);
     const actor = {
       id: sprite.id, key: sprite.key, tile: { x: sprite.x, y: sprite.y }, pos: { x: sprite.x, y: sprite.y },
-      path: [], stepT: 0, facing: 1, motions: [], phase: (cellHash(sprite.x, sprite.y) % 1000) / 1000,
-      lying: 0, pose: null, state: "up", health: undefined, barKey: "", removing: -1, name: sprite.name,
+      path: [], along: 0, glide: null, facing: 1, motions: [], phase: (cellHash(sprite.x, sprite.y) % 1000) / 1000,
+      lying: 0, pose: null, state: "up", health: undefined, removing: -1, name: sprite.name,
       isCaster: ARCANE.has(sprite.key) || DIVINE.has(sprite.key), root, shadow, body, flash, aura, tag, tagBack, bar,
     };
     actors.set(sprite.id, actor);
-    if (appear !== false) startMotion(actor, "appear", { delay: appear ?? 0 });
+    startMotion(actor, "appear", { delay: appearDelay });
     return actor;
   }
 
@@ -238,10 +243,10 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
   }
 
   function startMotion(actor, name, { target, delay = 0 } = {}) {
-    if (!actor || !MOTIONS[name]) return;
+    if (!actor || !BODY_MOTIONS[name]) return;
     const dir = directionTo(actor, target);
     if (target && Math.abs(dir.x) > 0.2) actor.facing = Math.sign(dir.x);
-    actor.motions.push({ name, start: now + delay, duration: MOTIONS[name][0], dir, facing: actor.facing });
+    actor.motions.push({ name, start: now + delay, duration: BODY_MOTIONS[name].seconds, dir, facing: actor.facing });
   }
 
   function directionTo(actor, target) {
@@ -252,6 +257,9 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     return { x: dx / length, y: dy / length };
   }
 
+  // A walk is `path` (the tiles) and `along`, how far along it the character is:
+  // 2.25 is a quarter of the way from path[2] to path[3]. Hop and glide differ only
+  // in how `along` grows, so switching style in the middle of a walk keeps the place.
   function walkTo(actor, x, y) {
     if (actor.tile.x === x && actor.tile.y === y) return;
     const from = actor.path.length ? actor.path.at(-1) : { x: Math.round(actor.pos.x), y: Math.round(actor.pos.y) };
@@ -259,77 +267,66 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     actor.path = actor.path.length ? [...actor.path, ...path.slice(1)] : path;
     actor.tile = { x, y };
     actor.pose = null; // a walking character is standing
-    if (motionStyle === "glide") startGlide(actor, glideAlong(actor));
+    if (motionStyle === "glide") startGlide(actor);
   }
 
-  // Glide: the distance along the path follows an ease-in-out curve over the
-  // whole walk, so the character sets off, travels and settles, like the moon
-  // in shirokujaku. It stays on the path, so it never cuts through a wall.
-  function startGlide(actor, from) {
-    const to = actor.path.length - 1;
-    actor.glide = { from, to, start: now, duration: Math.max(MIN_GLIDE_SECONDS, (to - from) / GLIDE_TILES_PER_SECOND) };
+  // Glide: `along` follows an ease-in-out curve over the rest of the walk, so the
+  // character sets off, travels and settles, like the moon in shirokujaku.
+  // It stays on the path, so it never cuts through a wall.
+  function startGlide(actor) {
+    const tiles = actor.path.length - 1 - actor.along;
+    actor.glide = { from: actor.along, start: now, duration: Math.max(MIN_GLIDE_SECONDS, tiles / GLIDE_TILES_PER_SECOND) };
   }
 
-  function glideAlong(actor) {
-    const g = actor.glide;
-    if (!g) return 0;
-    const p = clamp((now - g.start) / g.duration);
-    return g.from + (g.to - g.from) * (0.5 - 0.5 * Math.cos(Math.PI * p));
-  }
-
-  function glide(actor) {
-    const along = glideAlong(actor);
-    const index = Math.min(actor.path.length - 2, Math.floor(along));
-    const a = actor.path[index];
-    const b = actor.path[index + 1];
-    const t = along - index;
-    if (b.x !== a.x) actor.facing = Math.sign(b.x - a.x);
-    actor.pos.x = a.x + (b.x - a.x) * t;
-    actor.pos.y = a.y + (b.y - a.y) * t;
-    if (now >= actor.glide.start + actor.glide.duration) {
-      actor.path = [];
-      actor.glide = null;
-    }
-  }
-
-  // Changing the style in the middle of a walk keeps the character where it is.
   function setMotion(next) {
     motionStyle = next;
     for (const actor of actors.values()) {
-      if (actor.path.length < 2) continue;
-      if (next === "glide") {
-        startGlide(actor, actor.stepT);
-      } else {
-        const along = glideAlong(actor);
-        const index = Math.min(actor.path.length - 2, Math.floor(along));
-        actor.path = actor.path.slice(index);
-        actor.stepT = along - index;
-        actor.glide = null;
+      actor.glide = null;
+      if (next === "glide" && actor.path.length > 1) startGlide(actor);
+    }
+  }
+
+  // Moves the character along its path; returns the hop height in tile pixels.
+  function walk(actor, dt) {
+    const last = actor.path.length - 1;
+    let hop = 0;
+    if (actor.glide) {
+      const { from, start, duration } = actor.glide;
+      const p = clamp((now - start) / duration);
+      const eased = 0.5 - 0.5 * Math.cos(Math.PI * p);
+      actor.along = from * (1 - eased) + last * eased; // exactly `last` at the end
+    } else {
+      // Hop: one tile per STEP_SECONDS; a hop stops on its tile, so every tile gets a landing.
+      const step = Math.floor(actor.along);
+      actor.along = Math.min(step + 1, actor.along + dt / STEP_SECONDS);
+      hop = bump(actor.along - step) * HOP;
+      if (actor.along === step + 1) {
+        startMotion(actor, "land");
+        if (Math.random() < 0.6) puff(actor.path[step + 1].x + 0.5, actor.path[step + 1].y + 0.95, 0xa89070, 3);
       }
     }
+    // On a tile, the step that ended there sets the facing.
+    const index = Math.max(0, Math.ceil(actor.along) - 1);
+    const a = actor.path[index];
+    const b = actor.path[index + 1];
+    const t = actor.along - index;
+    if (b.x !== a.x) actor.facing = Math.sign(b.x - a.x);
+    actor.pos.x = a.x + (b.x - a.x) * t;
+    actor.pos.y = a.y + (b.y - a.y) * t;
+    if (actor.along >= last) {
+      actor.path = [];
+      actor.along = 0;
+      actor.glide = null;
+    }
+    return hop;
   }
 
   function updateActor(actor, dt) {
     const out = { x: 0, y: 0, sx: 1, sy: 1, rot: 0, alpha: 1, flash: 0, aura: 0 };
     // walking
     let hop = 0;
-    if (actor.path.length > 1 && actor.glide) {
-      glide(actor);
-    } else if (actor.path.length > 1) {
-      actor.stepT += dt / STEP_SECONDS;
-      const [a, b] = actor.path;
-      if (b.x !== a.x) actor.facing = Math.sign(b.x - a.x);
-      const p = Math.min(1, actor.stepT);
-      actor.pos.x = a.x + (b.x - a.x) * p;
-      actor.pos.y = a.y + (b.y - a.y) * p;
-      hop = bump(p) * HOP;
-      if (actor.stepT >= 1) {
-        actor.path.shift();
-        actor.stepT = 0;
-        startMotion(actor, "land");
-        if (Math.random() < 0.6) puff(actor.pos.x + 0.5, actor.pos.y + 0.95, 0xa89070, 3);
-        if (actor.path.length < 2) actor.path = [];
-      }
+    if (actor.path.length > 1) {
+      hop = walk(actor, dt);
     } else {
       // idle: breathing and a slow bob, each actor on its own rhythm
       const t = now * 2.2 + actor.phase * 6.28;
@@ -341,12 +338,15 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     // motions
     actor.motions = actor.motions.filter((m) => now < m.start + m.duration);
     for (const m of actor.motions) {
-      if (now < m.start) continue;
+      if (now < m.start) {
+        if (m.name === "appear") out.alpha = 0; // hidden until it appears
+        continue;
+      }
       if (!m.begun) {
         m.begun = true;
         if (m.name === "vanish" || m.name === "appear") puff(actor.pos.x + 0.5, actor.pos.y + 0.6, 0xcfc6b8, 12);
       }
-      MOTIONS[m.name][1]((now - m.start) / m.duration, out, m);
+      BODY_MOTIONS[m.name].move((now - m.start) / m.duration, out, m);
     }
     // lying down: dying, dead, or told to fall
     const lie = actor.pose === "lying" || actor.state === "dying" || actor.state === "dead" ? 1 : 0;
@@ -372,7 +372,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     flash.rotation = body.rotation;
     flash.position.copyFrom(body.position);
     flash.alpha = out.flash * 0.85;
-    shadow.scale.set(1 - hop / 10 - actor.lying * 0.1 + actor.lying * 0.4, 1);
+    shadow.scale.set(1 - hop / 10 + 0.3 * actor.lying, 1);
     shadow.alpha = 1 - hop / 8;
     // caster aura: a faint idle pulse, bright while casting
     const idleAura = actor.isCaster ? 0.1 + 0.05 * Math.sin(now * 3 + actor.phase * 6) : 0;
@@ -478,7 +478,8 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
       const x = sx + (ex - sx) * p;
       const y = sy + (ey - sy) * p - bump(p) * arc;
       node.position.set(x, y);
-      if (kind === "arrow") node.rotation = Math.atan2(ey - sy - Math.cos(Math.PI * p) * arc * Math.PI / 2, ex - sx);
+      // the arrow points along the slope of its flight path
+      if (kind === "arrow") node.rotation = Math.atan2(ey - sy - Math.PI * arc * Math.cos(Math.PI * p), ex - sx);
       else sparkle(x / T, y / T + 0.2, node.tint, 1);
       if (p >= 1) {
         node.destroy();
@@ -560,7 +561,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
       }
       startMotion(caster, "glow");
       if (effect.spell === "magic missile" && caster && target) {
-        const count = Math.min(3, Math.max(1, Math.round(effect.amount / 3)));
+        const count = effect.missiles;
         for (let i = 0; i < count; i++) {
           later(0.25 + i * 0.12, () => projectile(caster, target, { kind: "magic", seconds: 0.45, onHit: () => (i === count - 1 ? hurt(target, caster, effect.amount, false) : startMotion(target, "hurt")) }));
         }
@@ -610,7 +611,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
       light.sprite.visible = true;
       light.sprite.position.set(x * LIGHT_TEXELS, y * LIGHT_TEXELS);
       light.sprite.scale.set((light.radius * 2 * LIGHT_TEXELS * flicker) / radial.width);
-      light.sprite.alpha = (light.alpha ?? 1) * (0.92 + 0.08 * flicker);
+      light.sprite.alpha = light.alpha * (0.92 + 0.08 * flicker);
       if (light.glow) {
         light.glow.position.set(x * T, y * T);
         light.glow.scale.set((T * 2.6 * flicker) / radial.width);
@@ -712,6 +713,10 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
       map = newMap;
       if (isNewMap) {
         for (const actor of [...actors.values()]) destroyActor(actor);
+        // Effects still flying belong to the old map.
+        timers.length = 0;
+        for (const p of particles.splice(0)) p.sprite.destroy();
+        for (const f of floaters.splice(0)) f.node.destroy();
         resize();
         irisStart = now;
       }
@@ -722,7 +727,13 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
       const seen = new Set();
       newMap.sprites.forEach((sprite, index) => {
         seen.add(sprite.id);
-        const actor = actors.get(sprite.id) ?? createActor(sprite, isNewMap ? 0.25 + index * 0.08 : 0);
+        let actor = actors.get(sprite.id);
+        // The same id with other art (removed and added back): a new actor shows the new art.
+        if (actor && actor.key !== sprite.key) {
+          destroyActor(actor);
+          actor = undefined;
+        }
+        actor ??= createActor(sprite, isNewMap ? 0.25 + index * 0.08 : 0);
         actor.name = sprite.name;
         actor.health = health[sprite.id];
         actor.state = states[sprite.id] ?? "up";

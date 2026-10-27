@@ -33,13 +33,15 @@ function serveSpeechClip(response: ServerResponse, clipId: number) {
 }
 
 async function serveStaticFile(response: ServerResponse, urlPath: string) {
+  const vendorFile = Object.hasOwn(VENDOR_FILES, urlPath) ? VENDOR_FILES[urlPath] : undefined;
   let filePath: string;
   try {
-    filePath = Object.hasOwn(VENDOR_FILES, urlPath) ? VENDOR_FILES[urlPath] : resolve(PUBLIC_DIR, `.${decodeURIComponent(urlPath)}`);
+    filePath = vendorFile ?? resolve(PUBLIC_DIR, `.${decodeURIComponent(urlPath)}`);
   } catch {
     return response.writeHead(400).end();
   }
-  if (!Object.hasOwn(VENDOR_FILES, urlPath) && !filePath.startsWith(PUBLIC_DIR + sep)) return response.writeHead(403).end();
+  // Vendor files live outside public on purpose; every other path must stay inside it.
+  if (!vendorFile && !filePath.startsWith(PUBLIC_DIR + sep)) return response.writeHead(403).end();
   try {
     const body = await readFile(filePath);
     // No ETag or Last-Modified is sent, so the browser must revalidate on every load.

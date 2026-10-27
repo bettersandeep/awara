@@ -2,8 +2,8 @@
 // The session knows nothing about sockets. It sends plain messages to `broadcast`.
 import { makeRng } from "./rules/dice.ts";
 import { type Character, armorClass, lifeState } from "./rules/character.ts";
-import { type MapState, type Sprite, makeWorld } from "./scene/world.ts";
-import { type Motion, normalizeMotion } from "./motions.ts";
+import { type MapState, makeWorld } from "./scene/world.ts";
+import { characterOfSprite, effectForBoard, findSprite as findSpriteOnMap, resolveMotions } from "./boardEvents.ts";
 import { applySceneOps } from "./scene/sceneOps.ts";
 import { type BoardEffect, type NarrationBeat, type Narrator, type NarratorHost, createNarrator } from "./agents/narrator.ts";
 import { type CompanionAgent, type Declaration, createCompanionAgent } from "./agents/companion.ts";
@@ -114,38 +114,13 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
     return npcVoices.get(key)!;
   }
 
-  // A sprite on the current map, by sprite id, character id or name.
-  function findSprite(idOrName: string | undefined): Sprite | undefined {
-    const map = world.maps[world.currentMap];
-    if (!map || !idOrName) return undefined;
-    const key = idOrName.trim().toLowerCase();
-    return map.sprites.find((s) => s.id.toLowerCase() === key)
-      ?? map.sprites.find((s) => s.name?.toLowerCase() === key)
-      ?? map.sprites.find((s) => characterOf(s)?.id.toLowerCase() === key);
-  }
-
-  // Checks the narrator's motions; a speaker on the map talks when no motion is given.
-  function resolveMotions(beat: NarrationBeat, skipped: string[]): Motion[] {
-    const motions: Motion[] = [];
-    for (const raw of beat.motions ?? []) {
-      const action = normalizeMotion(raw.action);
-      const sprite = findSprite(raw.id);
-      if (!action || !sprite) {
-        skipped.push(`${raw.id} ${raw.action} (${!sprite ? "no such sprite on the map" : "unknown action"})`);
-        continue;
-      }
-      motions.push({ id: sprite.id, action, target: findSprite(raw.target)?.id });
-    }
-    const speaker = findSprite(beat.speaker);
-    if (speaker && !motions.some((m) => m.id === speaker.id)) motions.push({ id: speaker.id, action: "talk" });
-    return motions;
-  }
+  const findSprite = (idOrName: string | undefined) => findSpriteOnMap(world.maps[world.currentMap], characters, idOrName);
 
   function narrate(narrationBeats: NarrationBeat[]): string[] {
     const skipped: string[] = [];
     const beats: Beat[] = narrationBeats.map((beat) => ({
       text: replaceLongDashes(beat.text), speaker: beat.speaker, voice: voiceForBeat(beat),
-      motions: resolveMotions(beat, skipped),
+      motions: resolveMotions(beat, findSprite, skipped),
     }));
     const text = beats
       .map((beat) => (beat.speaker ? `${beat.speaker}: "${stripVoiceCues(beat.text)}"` : stripVoiceCues(beat.text)))
@@ -156,13 +131,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
   // Rule results for the board, with character ids turned into sprite ids.
   function effect(boardEffect: BoardEffect) {
-    const spriteId = (characterId: string) => findSprite(characterId)?.id;
-    const ids = boardEffect.kind === "rest"
-      ? { ids: boardEffect.ids.map(spriteId).filter(Boolean) }
-      : boardEffect.kind === "attack" ? { attacker: spriteId(boardEffect.attacker), target: spriteId(boardEffect.target) }
-        : boardEffect.kind === "spell" ? { caster: spriteId(boardEffect.caster), target: spriteId(boardEffect.target) }
-          : { target: spriteId(boardEffect.target) };
-    broadcast({ type: "effect", ...boardEffect, ...ids });
+    broadcast(effectForBoard(boardEffect, (characterId) => findSprite(characterId)?.id));
   }
 
   function describeEvent(entry: LogEntry): string {
@@ -180,17 +149,12 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
   // ---- messages for the browser --------------------------------------------
 
-  // The narrator may give a sprite another id than its character, so names match too.
-  const characterOf = (sprite: Sprite): Character | undefined =>
-    (Object.hasOwn(characters, sprite.id) ? characters[sprite.id] : undefined)
-    ?? Object.values(characters).find((c) => sprite.name && c.name.toLowerCase() === sprite.name.toLowerCase());
-
   // Hit points as a fraction of max hp, and the life state, for each sprite that is a character.
   function vitalsOfSprites(map: MapState) {
     const health: Record<string, number> = {};
     const states: Record<string, string> = {};
     for (const sprite of map.sprites) {
-      const character = characterOf(sprite);
+      const character = characterOfSprite(sprite, characters);
       if (!character) continue;
       health[sprite.id] = Math.max(0, character.hp) / character.maxHp;
       states[sprite.id] = lifeState(character);

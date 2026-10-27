@@ -28,8 +28,8 @@ const SYNONYMS: Record<string, MotionName> = {
   arrive: "appear", materialize: "appear",
 };
 
-export const MOTION_HELP =
-  "talk, lunge (with target), jump, cheer, cower, shake, bow, spin, fall, rise, sneak, glow, vanish, appear";
+// Built from MOTIONS, so a new motion always reaches the narrator's prompt.
+export const MOTION_HELP = MOTIONS.map((m) => (m === "lunge" ? "lunge (with target)" : m)).join(", ");
 
 export function normalizeMotion(action: string): MotionName | undefined {
   const word = action.trim().toLowerCase();

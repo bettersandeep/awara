@@ -41,7 +41,7 @@ You do not control the player characters.
   Never decide an uncertain outcome without a roll.
 - Be fast: use at most 3 tool calls per beat.
   Batch ALL scene ops into ONE scene_ops call.
-  Call narrate and scene_ops together in the same message.
+  Call narrate and scene_ops together in the same message, with scene_ops first, so beings you narrate are already on the map.
   Do not call get_state unless you are unsure of the world state.
 
 ## scene_ops format (exact field names)

@@ -6,7 +6,7 @@
 //   "palette":      the whole lit board is dithered to the 16 PICO-8 colours
 import { Filter, GlProgram } from "/vendor/pixi.mjs";
 
-export const DITHER_LOOKS = ["dither-light", "duotone", "palette"];
+const DITHER_LOOKS = ["dither-light", "duotone", "palette"];
 
 const VERTEX = `
 in vec2 aPosition;
@@ -91,22 +91,26 @@ void main() {
   }
 }`;
 
-export function createDitherFilter(look) {
+// One filter for all looks; setLook changes the look in place.
+export function createDitherFilter() {
   const filter = new Filter({
     glProgram: GlProgram.from({ vertex: VERTEX, fragment: FRAGMENT, name: "awara-dither" }),
     resources: {
       ditherUniforms: {
         uSize: { value: new Float32Array([1, 1]), type: "vec2<f32>" },
         uTime: { value: 0, type: "f32" },
-        uLook: { value: DITHER_LOOKS.indexOf(look), type: "f32" },
-        uAmbient: { value: new Float32Array([0.42, 0.42, 0.52]), type: "vec3<f32>" },
+        uLook: { value: 0, type: "f32" },
+        uAmbient: { value: new Float32Array(3), type: "vec3<f32>" }, // set by update before the first frame
       },
     },
   });
-  // The dithered light multiplies the scene, as the smooth light map does.
-  if (look === "dither-light") filter.blendMode = "multiply";
   const uniforms = filter.resources.ditherUniforms.uniforms;
-  filter.update = (seconds, widthCss, heightCss, ambient = 0x6b6b85) => {
+  filter.setLook = (look) => {
+    uniforms.uLook = DITHER_LOOKS.indexOf(look);
+    // The dithered light multiplies the scene, as the smooth light map does.
+    filter.blendMode = look === "dither-light" ? "multiply" : "normal";
+  };
+  filter.update = (seconds, widthCss, heightCss, ambient) => {
     uniforms.uTime = seconds;
     uniforms.uAmbient[0] = ((ambient >> 16) & 255) / 255;
     uniforms.uAmbient[1] = ((ambient >> 8) & 255) / 255;

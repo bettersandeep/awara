@@ -6,6 +6,7 @@ import { createSpeech } from "./speech.js";
 import { createStoryLog } from "./storyLog.js";
 import { showCharacterCreation } from "./characterCreation.js";
 import { createQuickActions } from "./quickActions.js";
+import { createStoryMotions } from "./storyMotions.js";
 
 const RECONNECT_DELAY_MS = 2000;
 const BOARD_LOOK_KEY = "awara.look";
@@ -15,9 +16,6 @@ const BOARD_MOTIONS = { hop: "🦘 hop", glide: "〰 glide" };
 const BOARD_LOOKS = {
   smooth: "✨ smooth", "dither-light": "░ dithered light", duotone: "▓ duotone", palette: "▒ palette", canvas: "▦ canvas",
 };
-// Story motions follow the voice. Without it they play one beat after another.
-const BEAT_SECONDS_WITHOUT_VOICE = 1.6;
-const VOICE_WAIT_MS = 8000; // a clip that has not arrived by then plays its motions without the voice
 
 const catalog = await fetch("catalog.json").then((response) => response.json());
 
@@ -39,12 +37,15 @@ const board = await createChosenBoard(boardLook);
 const seats = createSeats({ catalog, onSeatChange: (seat, change) => send({ type: "seat", seat, ...change }) });
 const speech = createSpeech({
   onSpeakerChange: (speaker, isSpeaking) => seats.setSpeaking(speaker, isSpeaking),
-  onPosition: (audioId, seconds) => storyLog.showSpokenPosition(audioId, seconds),
+  onPosition: (audioId, seconds) => {
+    storyLog.showSpokenPosition(audioId, seconds);
+    if (seconds === null) storyMotions.clipStopped(audioId); // ended, stopped or failed
+  },
 });
 const storyLog = createStoryLog(document.getElementById("story-log"), {
   nameOf: (id) => party?.members.find((member) => member.id === id)?.name ?? id,
   onReplay: (audioId, speaker) => speech.playNow(audioId, speaker),
-  onPieceSpoken: (logIndex, pieceIndex) => playMotionsUpTo(logIndex, pieceIndex),
+  onPieceSpoken: (logIndex, pieceIndex) => storyMotions.pieceSpoken(logIndex, pieceIndex),
 });
 
 // A board choice comes from the URL (?look=, ?motion=), then the player's last choice, then the default.
@@ -78,19 +79,19 @@ async function createChosenBoard(look) {
 }
 
 const lookPicker = document.getElementById("board-look");
-for (const [look, label] of Object.entries(BOARD_LOOKS)) lookPicker.add(new Option(label, look, false, look === boardLook));
-let currentLook = boardLook;
+// A browser without WebGL got the canvas board, so the picker shows canvas.
+const shownLook = board.setLook ? boardLook : "canvas";
+for (const [look, label] of Object.entries(BOARD_LOOKS)) lookPicker.add(new Option(label, look, false, look === shownLook));
 lookPicker.onchange = () => {
   const next = lookPicker.value;
   saveChoice(BOARD_LOOK_KEY, next);
   // WebGL looks switch in place. The canvas board is another renderer, so the page
   // reloads; the server replays the game to every new page, so the game continues.
-  if (next === "canvas" || currentLook === "canvas" || !board.setLook) {
+  if (next === "canvas" || !board.setLook) {
     location.href = location.pathname;
     return;
   }
   board.setLook(next);
-  currentLook = next;
 };
 
 // Walking style on the WebGL board; the canvas board has its own simple glide.
@@ -102,38 +103,10 @@ motionPicker.onchange = () => {
   board.setMotion(motionPicker.value);
 };
 
-// logIndex -> { pieces, played: Set of piece indexes, fallback timer }
-const storyMotions = new Map();
-
-function playPieceMotions(record, index) {
-  if (record.played.has(index) || !record.pieces[index]?.motions) return;
-  record.played.add(index);
-  board.playMotions?.(record.pieces[index].motions);
-}
-
-function playMotionsUpTo(logIndex, pieceIndex) {
-  const record = storyMotions.get(logIndex);
-  if (!record) return;
-  clearTimeout(record.fallback);
-  for (let i = 0; i <= pieceIndex; i++) playPieceMotions(record, i);
-}
-
-function playMotionsWithoutVoice(record) {
-  let beat = 0;
-  record.pieces.forEach((piece, index) => {
-    if (!piece.motions || record.played.has(index)) return;
-    setTimeout(() => playPieceMotions(record, index), beat * BEAT_SECONDS_WITHOUT_VOICE * 1000);
-    beat++;
-  });
-}
-
-function scheduleStoryMotions(entry) {
-  if (entry.replay || !entry.pieces?.some((piece) => piece.motions)) return;
-  const record = { pieces: entry.pieces, played: new Set() };
-  storyMotions.set(entry.logIndex, record);
-  if (speech.isAutoplay()) record.fallback = setTimeout(() => playMotionsWithoutVoice(record), VOICE_WAIT_MS);
-  else playMotionsWithoutVoice(record);
-}
+const storyMotions = createStoryMotions({
+  playMotions: (motions) => board.playMotions?.(motions),
+  isVoiceOn: () => speech.isAutoplay(),
+});
 
 const quickActions = createQuickActions({
   doInput,
@@ -185,11 +158,12 @@ const messageHandlers = {
   },
   log(entry) {
     storyLog.add(entry);
-    scheduleStoryMotions(entry);
+    storyMotions.lineAdded(entry);
   },
   effect: (effect) => board.playEffect?.(effect),
   audio({ audioId, timings, speaker, logIndex }) {
     storyLog.attachAudio(logIndex, audioId, timings, speaker);
+    storyMotions.clipReady(logIndex, audioId);
     speech.clipReady(audioId, speaker);
   },
   busy: ({ busy }) => setBusy(busy),
@@ -210,6 +184,7 @@ function connect() {
     mapName.textContent = "reconnecting...";
     setBusy(true);
     storyLog.clear();
+    storyMotions.clear();
     setTimeout(connect, RECONNECT_DELAY_MS);
   };
 }
@@ -246,7 +221,9 @@ actionBar.onsubmit = (event) => {
 };
 
 speechToggle.onclick = () => {
-  speechToggle.textContent = speech.toggleAutoplay() ? "🔊" : "🔇";
+  const voiceOn = speech.toggleAutoplay();
+  speechToggle.textContent = voiceOn ? "🔊" : "🔇";
+  if (!voiceOn) storyMotions.voiceOff();
 };
 
 connect();

@@ -2,33 +2,28 @@
 // Breadth-first over walkable tiles, so a walk goes around walls. When no path
 // exists (for example the narrator moved a sprite past a wall), it steps in a
 // straight line instead, so the sprite still arrives.
-const MAX_PATH_SEARCH = 4000; // cells; a 60x40 map has 2400
-
 export function findPath(map, isWalkable, from, to) {
-  if (from.x === to.x && from.y === to.y) return [from];
-  const key = (x, y) => y * map.w + x;
-  const cameFrom = new Map([[key(from.x, from.y), null]]);
+  const key = (cell) => cell.y * map.w + cell.x;
+  const cameFrom = new Map([[key(from), null]]); // tile key -> the cell it was reached from
+  // Each tile is queued at most once, so the search ends after map.w * map.h cells.
   const queue = [from];
-  for (let head = 0; head < queue.length && head < MAX_PATH_SEARCH; head++) {
+  for (let head = 0; head < queue.length; head++) {
     const cell = queue[head];
-    if (cell.x === to.x && cell.y === to.y) return walkBack(cameFrom, key, cell, map.w);
+    if (cell.x === to.x && cell.y === to.y) {
+      const path = [];
+      for (let c = cell; c; c = cameFrom.get(key(c))) path.unshift(c);
+      return path;
+    }
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const x = cell.x + dx;
-      const y = cell.y + dy;
-      if (x < 0 || y < 0 || x >= map.w || y >= map.h || cameFrom.has(key(x, y))) continue;
-      const isGoal = x === to.x && y === to.y;
-      if (!isGoal && !isWalkable(x, y)) continue;
-      cameFrom.set(key(x, y), key(cell.x, cell.y));
-      queue.push({ x, y });
+      const next = { x: cell.x + dx, y: cell.y + dy };
+      const inside = next.x >= 0 && next.y >= 0 && next.x < map.w && next.y < map.h;
+      const isGoal = next.x === to.x && next.y === to.y;
+      if (!inside || cameFrom.has(key(next)) || (!isGoal && !isWalkable(next.x, next.y))) continue;
+      cameFrom.set(key(next), cell);
+      queue.push(next);
     }
   }
   return straightLine(from, to);
-}
-
-function walkBack(cameFrom, key, end, width) {
-  const path = [];
-  for (let k = key(end.x, end.y); k !== null; k = cameFrom.get(k)) path.push({ x: k % width, y: Math.floor(k / width) });
-  return path.reverse();
 }
 
 function straightLine(from, to) {
