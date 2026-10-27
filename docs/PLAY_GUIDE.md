@@ -171,7 +171,13 @@ The game continues when you change it, and the browser remembers your choice.
   Switching to or from it reloads the page.
 
 The three dot looks use ordered (Bayer) dithering at one dot per screen pixel.
-You can also open a look directly, for example http://localhost:8420/?look=duotone.
+
+The second list picks how characters walk on every look except canvas:
+
+- **🦘 hop** (default): one small hop per tile, with dust.
+- **〰 glide**: one smooth glide along the whole path, which starts slowly and settles at the end.
+
+You can also open a choice directly, for example http://localhost:8420/?look=duotone&motion=glide.
 
 ## Seats, models and voices
 

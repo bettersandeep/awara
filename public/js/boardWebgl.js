@@ -7,7 +7,9 @@ import { Application, Assets, Container, Graphics, Rectangle, RenderTexture, Spr
 import { findPath } from "./boardPath.js";
 import { createDitherFilter } from "./boardDither.js";
 
-const STEP_SECONDS = 0.17; // one tile of walking
+const STEP_SECONDS = 0.17; // hop: one tile of walking
+const GLIDE_TILES_PER_SECOND = 3.2; // glide: average speed of a whole walk
+const MIN_GLIDE_SECONDS = 0.45;
 const HOP = 3; // pixels of lift per step
 const ANIMATION_FPS = 6; // prop frames
 const LIGHT_TEXELS = 8; // light map texels per tile; smooth light
@@ -48,7 +50,9 @@ const MOTIONS = {
 };
 
 // look: "smooth" (soft light), or a dither look from boardDither.js
-export async function createWebglBoard(frame, catalog, { onSelectSprite, look = "smooth" }) {
+// motion: "hop" (a hop per tile) or "glide" (one eased glide along the whole path)
+export async function createWebglBoard(frame, catalog, { onSelectSprite, look = "smooth", motion = "hop" }) {
+  let motionStyle = motion;
   TextureSource.defaultOptions.scaleMode = "nearest";
   const app = new Application();
   await app.init({ width: 64, height: 64, background: 0x000000, antialias: false, resolution: window.devicePixelRatio || 1, autoDensity: true, preference: "webgl" });
@@ -255,13 +259,63 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     actor.path = actor.path.length ? [...actor.path, ...path.slice(1)] : path;
     actor.tile = { x, y };
     actor.pose = null; // a walking character is standing
+    if (motionStyle === "glide") startGlide(actor, glideAlong(actor));
+  }
+
+  // Glide: the distance along the path follows an ease-in-out curve over the
+  // whole walk, so the character sets off, travels and settles, like the moon
+  // in shirokujaku. It stays on the path, so it never cuts through a wall.
+  function startGlide(actor, from) {
+    const to = actor.path.length - 1;
+    actor.glide = { from, to, start: now, duration: Math.max(MIN_GLIDE_SECONDS, (to - from) / GLIDE_TILES_PER_SECOND) };
+  }
+
+  function glideAlong(actor) {
+    const g = actor.glide;
+    if (!g) return 0;
+    const p = clamp((now - g.start) / g.duration);
+    return g.from + (g.to - g.from) * (0.5 - 0.5 * Math.cos(Math.PI * p));
+  }
+
+  function glide(actor) {
+    const along = glideAlong(actor);
+    const index = Math.min(actor.path.length - 2, Math.floor(along));
+    const a = actor.path[index];
+    const b = actor.path[index + 1];
+    const t = along - index;
+    if (b.x !== a.x) actor.facing = Math.sign(b.x - a.x);
+    actor.pos.x = a.x + (b.x - a.x) * t;
+    actor.pos.y = a.y + (b.y - a.y) * t;
+    if (now >= actor.glide.start + actor.glide.duration) {
+      actor.path = [];
+      actor.glide = null;
+    }
+  }
+
+  // Changing the style in the middle of a walk keeps the character where it is.
+  function setMotion(next) {
+    motionStyle = next;
+    for (const actor of actors.values()) {
+      if (actor.path.length < 2) continue;
+      if (next === "glide") {
+        startGlide(actor, actor.stepT);
+      } else {
+        const along = glideAlong(actor);
+        const index = Math.min(actor.path.length - 2, Math.floor(along));
+        actor.path = actor.path.slice(index);
+        actor.stepT = along - index;
+        actor.glide = null;
+      }
+    }
   }
 
   function updateActor(actor, dt) {
     const out = { x: 0, y: 0, sx: 1, sy: 1, rot: 0, alpha: 1, flash: 0, aura: 0 };
     // walking
     let hop = 0;
-    if (actor.path.length > 1) {
+    if (actor.path.length > 1 && actor.glide) {
+      glide(actor);
+    } else if (actor.path.length > 1) {
       actor.stepT += dt / STEP_SECONDS;
       const [a, b] = actor.path;
       if (b.x !== a.x) actor.facing = Math.sign(b.x - a.x);
@@ -688,6 +742,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look = 
     playEffect,
     playMotions,
     setLook,
+    setMotion,
   };
 }
 

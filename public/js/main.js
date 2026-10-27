@@ -9,6 +9,8 @@ import { createQuickActions } from "./quickActions.js";
 
 const RECONNECT_DELAY_MS = 2000;
 const BOARD_LOOK_KEY = "awara.look";
+const BOARD_MOTION_KEY = "awara.motion";
+const BOARD_MOTIONS = { hop: "🦘 hop", glide: "〰 glide" };
 // The canvas board, or the WebGL board with one of its looks (see boardDither.js).
 const BOARD_LOOKS = {
   smooth: "✨ smooth", "dither-light": "░ dithered light", duotone: "▓ duotone", palette: "▒ palette", canvas: "▦ canvas",
@@ -31,7 +33,8 @@ let busyTimer = null;
 
 const send = (message) => socket.send(JSON.stringify(message));
 
-const boardLook = readBoardLook();
+const boardLook = readChoice("look", BOARD_LOOK_KEY, BOARD_LOOKS, "smooth");
+const boardMotion = readChoice("motion", BOARD_MOTION_KEY, BOARD_MOTIONS, "hop");
 const board = await createChosenBoard(boardLook);
 const seats = createSeats({ catalog, onSeatChange: (seat, change) => send({ type: "seat", seat, ...change }) });
 const speech = createSpeech({
@@ -44,14 +47,20 @@ const storyLog = createStoryLog(document.getElementById("story-log"), {
   onPieceSpoken: (logIndex, pieceIndex) => playMotionsUpTo(logIndex, pieceIndex),
 });
 
-// The look comes from ?look=..., then the player's last choice, then smooth.
-function readBoardLook() {
-  const fromUrl = new URLSearchParams(location.search).get("look");
+// A board choice comes from the URL (?look=, ?motion=), then the player's last choice, then the default.
+function readChoice(param, storageKey, choices, fallback) {
+  const fromUrl = new URLSearchParams(location.search).get(param);
   let saved = null;
   try {
-    saved = localStorage.getItem(BOARD_LOOK_KEY);
+    saved = localStorage.getItem(storageKey);
   } catch {}
-  return [fromUrl, saved].find((look) => Object.hasOwn(BOARD_LOOKS, look ?? "")) ?? "smooth";
+  return [fromUrl, saved].find((choice) => Object.hasOwn(choices, choice ?? "")) ?? fallback;
+}
+
+function saveChoice(storageKey, value) {
+  try {
+    localStorage.setItem(storageKey, value);
+  } catch {}
 }
 
 // Without WebGL in the browser, the canvas board is used.
@@ -60,7 +69,7 @@ async function createChosenBoard(look) {
   if (look !== "canvas") {
     try {
       const { createWebglBoard } = await import("./boardWebgl.js");
-      return await createWebglBoard(document.getElementById("board-frame"), catalog, { ...options, look });
+      return await createWebglBoard(document.getElementById("board-frame"), catalog, { ...options, look, motion: boardMotion });
     } catch (error) {
       console.warn("WebGL board failed, using the canvas board:", error);
     }
@@ -73,9 +82,7 @@ for (const [look, label] of Object.entries(BOARD_LOOKS)) lookPicker.add(new Opti
 let currentLook = boardLook;
 lookPicker.onchange = () => {
   const next = lookPicker.value;
-  try {
-    localStorage.setItem(BOARD_LOOK_KEY, next);
-  } catch {}
+  saveChoice(BOARD_LOOK_KEY, next);
   // WebGL looks switch in place. The canvas board is another renderer, so the page
   // reloads; the server replays the game to every new page, so the game continues.
   if (next === "canvas" || currentLook === "canvas" || !board.setLook) {
@@ -84,6 +91,15 @@ lookPicker.onchange = () => {
   }
   board.setLook(next);
   currentLook = next;
+};
+
+// Walking style on the WebGL board; the canvas board has its own simple glide.
+const motionPicker = document.getElementById("board-motion");
+for (const [motion, label] of Object.entries(BOARD_MOTIONS)) motionPicker.add(new Option(label, motion, false, motion === boardMotion));
+motionPicker.hidden = !board.setMotion;
+motionPicker.onchange = () => {
+  saveChoice(BOARD_MOTION_KEY, motionPicker.value);
+  board.setMotion(motionPicker.value);
 };
 
 // logIndex -> { pieces, played: Set of piece indexes, fallback timer }
