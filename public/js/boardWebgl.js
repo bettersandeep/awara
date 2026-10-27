@@ -108,6 +108,8 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look, m
     lightSprite.blendMode = isLightOnly ? "normal" : "multiply"; // with the filter, the filter multiplies
     lightSprite.filters = isLightOnly ? [dither] : null;
     world.filters = dither && !isLightOnly ? [dither] : null;
+    // In two inks only brightness tells things apart, so the ground steps back behind the figures.
+    floor.tint = next === "duotone" ? 0x8c8c8c : 0xffffff;
   }
   setLook(look);
 
