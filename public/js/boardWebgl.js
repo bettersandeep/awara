@@ -3,8 +3,9 @@
 // in combat, and act out the motions the narrator gives each story beat.
 // Light is a soft light map multiplied over the world, with flickering flames.
 // World units are tile pixels; the world is scaled by a whole number to fit.
-import { Application, Assets, Container, Graphics, RenderTexture, Sprite, Text, Texture, TextureSource } from "/vendor/pixi.mjs";
+import { Application, Assets, Container, Graphics, Rectangle, RenderTexture, Sprite, Text, Texture, TextureSource } from "/vendor/pixi.mjs";
 import { findPath } from "./boardPath.js";
+import { createDitherFilter } from "./boardDither.js";
 
 const STEP_SECONDS = 0.17; // one tile of walking
 const HOP = 3; // pixels of lift per step
@@ -46,7 +47,8 @@ const MOTIONS = {
   land: [0.12, (p, out) => { out.sy -= 0.14 * bump(p); out.sx += 0.1 * bump(p); }],
 };
 
-export async function createWebglBoard(frame, catalog, { onSelectSprite }) {
+// look: "smooth" (soft light), or a dither look from boardDither.js
+export async function createWebglBoard(frame, catalog, { onSelectSprite, look = "smooth" }) {
   TextureSource.defaultOptions.scaleMode = "nearest";
   const app = new Application();
   await app.init({ width: 64, height: 64, background: 0x000000, antialias: false, resolution: window.devicePixelRatio || 1, autoDensity: true, preference: "webgl" });
@@ -83,6 +85,18 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite }) {
   const iris = new Graphics();
   overlay.addChild(selection);
   app.stage.addChild(world, overlay, iris);
+  // Dithered light replaces the smooth light map; duotone and palette dither the whole lit board.
+  // Filters are kept once built, so switching back does not compile a shader again.
+  const ditherFilters = new Map();
+  let dither = null;
+  function setLook(next) {
+    dither = next === "smooth" ? null : ditherFilters.get(next) ?? ditherFilters.set(next, createDitherFilter(next)).get(next);
+    const isLightOnly = next === "dither-light";
+    lightSprite.blendMode = isLightOnly ? "normal" : "multiply"; // with the filter, the filter multiplies
+    lightSprite.filters = isLightOnly ? [dither] : null;
+    world.filters = dither && !isLightOnly ? [dither] : null;
+  }
+  setLook(look);
 
   let map = null;
   let tilesKey = "";
@@ -170,6 +184,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite }) {
     lightTexture = RenderTexture.create({ width: map.w * LIGHT_TEXELS, height: map.h * LIGHT_TEXELS, scaleMode: "linear" });
     lightSprite.texture = lightTexture;
     lightSprite.scale.set(T / LIGHT_TEXELS);
+    lightSprite.filterArea = world.filterArea = new Rectangle(0, 0, width * scale, height * scale);
   }
 
   // ---- actors ----
@@ -611,6 +626,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite }) {
     updateParticles(dt);
     updateFloaters(dt);
     updateLights();
+    dither?.update(now, map.w * T * scale, map.h * T * scale, AMBIENT[map.lighting] ?? AMBIENT.torch);
     updateSelection();
     updateIris();
   });
@@ -671,6 +687,7 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite }) {
     },
     playEffect,
     playMotions,
+    setLook,
   };
 }
 

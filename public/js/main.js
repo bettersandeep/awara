@@ -8,8 +8,11 @@ import { showCharacterCreation } from "./characterCreation.js";
 import { createQuickActions } from "./quickActions.js";
 
 const RECONNECT_DELAY_MS = 2000;
-const BOARD_STYLE_KEY = "awara.board";
-const BOARD_STYLES = { webgl: "✨ webgl", canvas: "▦ canvas" };
+const BOARD_LOOK_KEY = "awara.look";
+// The canvas board, or the WebGL board with one of its looks (see boardDither.js).
+const BOARD_LOOKS = {
+  smooth: "✨ smooth", "dither-light": "░ dithered light", duotone: "▓ duotone", palette: "▒ palette", canvas: "▦ canvas",
+};
 // Story motions follow the voice. Without it they play one beat after another.
 const BEAT_SECONDS_WITHOUT_VOICE = 1.6;
 const VOICE_WAIT_MS = 8000; // a clip that has not arrived by then plays its motions without the voice
@@ -28,8 +31,8 @@ let busyTimer = null;
 
 const send = (message) => socket.send(JSON.stringify(message));
 
-const boardStyle = readBoardStyle();
-const board = await createChosenBoard(boardStyle);
+const boardLook = readBoardLook();
+const board = await createChosenBoard(boardLook);
 const seats = createSeats({ catalog, onSeatChange: (seat, change) => send({ type: "seat", seat, ...change }) });
 const speech = createSpeech({
   onSpeakerChange: (speaker, isSpeaking) => seats.setSpeaking(speaker, isSpeaking),
@@ -41,23 +44,23 @@ const storyLog = createStoryLog(document.getElementById("story-log"), {
   onPieceSpoken: (logIndex, pieceIndex) => playMotionsUpTo(logIndex, pieceIndex),
 });
 
-// The board style comes from ?board=webgl|canvas, then the last choice, then WebGL.
-// Without WebGL in the browser, the canvas board is used.
-function readBoardStyle() {
-  const fromUrl = new URLSearchParams(location.search).get("board");
+// The look comes from ?look=..., then the player's last choice, then smooth.
+function readBoardLook() {
+  const fromUrl = new URLSearchParams(location.search).get("look");
   let saved = null;
   try {
-    saved = localStorage.getItem(BOARD_STYLE_KEY);
+    saved = localStorage.getItem(BOARD_LOOK_KEY);
   } catch {}
-  return [fromUrl, saved].find((style) => Object.hasOwn(BOARD_STYLES, style ?? "")) ?? "webgl";
+  return [fromUrl, saved].find((look) => Object.hasOwn(BOARD_LOOKS, look ?? "")) ?? "smooth";
 }
 
-async function createChosenBoard(style) {
+// Without WebGL in the browser, the canvas board is used.
+async function createChosenBoard(look) {
   const options = { onSelectSprite: (sprite) => selectTarget(sprite) };
-  if (style === "webgl") {
+  if (look !== "canvas") {
     try {
       const { createWebglBoard } = await import("./boardWebgl.js");
-      return await createWebglBoard(document.getElementById("board-frame"), catalog, options);
+      return await createWebglBoard(document.getElementById("board-frame"), catalog, { ...options, look });
     } catch (error) {
       console.warn("WebGL board failed, using the canvas board:", error);
     }
@@ -65,14 +68,22 @@ async function createChosenBoard(style) {
   return createBoard(document.getElementById("board"), catalog, options);
 }
 
-const boardToggle = document.getElementById("board-toggle");
-boardToggle.textContent = BOARD_STYLES[boardStyle];
-boardToggle.onclick = () => {
+const lookPicker = document.getElementById("board-look");
+for (const [look, label] of Object.entries(BOARD_LOOKS)) lookPicker.add(new Option(label, look, false, look === boardLook));
+let currentLook = boardLook;
+lookPicker.onchange = () => {
+  const next = lookPicker.value;
   try {
-    localStorage.setItem(BOARD_STYLE_KEY, boardStyle === "webgl" ? "canvas" : "webgl");
+    localStorage.setItem(BOARD_LOOK_KEY, next);
   } catch {}
-  // The server replays the game to every new page, so a reload keeps the game.
-  location.href = location.pathname;
+  // WebGL looks switch in place. The canvas board is another renderer, so the page
+  // reloads; the server replays the game to every new page, so the game continues.
+  if (next === "canvas" || currentLook === "canvas" || !board.setLook) {
+    location.href = location.pathname;
+    return;
+  }
+  board.setLook(next);
+  currentLook = next;
 };
 
 // logIndex -> { pieces, played: Set of piece indexes, fallback timer }

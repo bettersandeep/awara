@@ -157,16 +157,21 @@ Hit points, AC and spell slots are on each seat card.
 
 The voice runs on your computer, so the speech can arrive a few seconds after the text.
 
-## Board style
+## Board look
 
-The button next to the speaker in the side panel switches the board between two styles.
-The game continues; the page reloads and the server shows the same table again.
+The list next to the speaker button in the side panel picks how the board looks.
+The game continues when you change it, and the browser remembers your choice.
 
-- **✨ webgl** (default): characters walk tile by tile around walls, breathe while they wait, lunge and flinch in combat, and act out what the narrator describes as the voice speaks it.
+- **✨ smooth** (default): characters walk tile by tile around walls, breathe while they wait, lunge and flinch in combat, and act out what the narrator describes as the voice speaks it.
   Spells fly as glowing missiles, healing sparkles, and the light flickers softly.
-- **▦ canvas**: the first, simpler board, with stepped pixel light.
+- **░ dithered light**: the same board, with light and darkness drawn as fine dot patterns.
+- **▓ duotone**: the whole board in two inks, cream on near-black, with dots that shimmer in bright light.
+- **▒ palette**: the whole board in a 16-colour retro palette.
+- **▦ canvas**: the first, simpler board, with stepped pixel light and no combat motion.
+  Switching to or from it reloads the page.
 
-You can also open http://localhost:8420/?board=canvas or ?board=webgl.
+The three dot looks use ordered (Bayer) dithering at one dot per screen pixel.
+You can also open a look directly, for example http://localhost:8420/?look=duotone.
 
 ## Seats, models and voices
 

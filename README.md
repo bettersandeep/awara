@@ -26,7 +26,7 @@ Then read the [play guide](docs/PLAY_GUIDE.md), with screenshots and step-by-ste
   Each seat can switch between Haiku 5.5, Sonnet 5.5 and Opus 5.5 during play.
 - **Personas** (`personas`): one Markdown file per companion, plus the narrator prompt.
 - **Browser client** (`public`): a WebGL board (PixiJS) draws the map from the tile catalog and animates it: walking, combat, spells, and the motions the narrator gives each story beat.
-  A button switches to the simpler canvas board.
+  The player picks a look: smooth light, three dithered looks (dithered light, duotone, a 16-colour palette), or the simpler canvas board.
   The seats around the board show the party, and the side panel shows the story.
 - **Speech** (`src/speech`): Kokoro-82M reads the story aloud, locally on the CPU.
   The text is split at punctuation, so commas, full stops and ellipses are real pauses, and long narration is never cut.
