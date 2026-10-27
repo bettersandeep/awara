@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { normalizeMotion } from "../src/motions.ts";
 import { buildSpeechPieces } from "../src/speech/script.ts";
 import { findPath } from "../public/js/boardPath.js";
+import { groundAt } from "../public/js/boardGround.js";
 
 test("motions accept known words and synonyms, and drop the rest", () => {
   assert.equal(normalizeMotion("Lunge"), "lunge");
@@ -34,4 +35,18 @@ test("walking paths go around walls and fall back to a straight line", () => {
   assert.ok(path.some((cell: { x: number; y: number }) => cell.y === 2), "goes through the gap in the bottom row");
   const boxedIn = findPath(map, (x: number) => x !== 2, { x: 0, y: 1 }, { x: 4, y: 1 });
   assert.equal(boxedIn.length, 5, "straight line when no path exists");
+});
+
+test("a tree stands on the most common walkable tile around it", () => {
+  const catalog = { tiles: { tree: { walkable: false }, "wall.stone": { walkable: false }, "floor.dirt": { walkable: true }, "floor.grass": { walkable: true } } };
+  const tiles = [
+    ["floor.grass", "floor.dirt", "floor.dirt", "wall.stone"],
+    ["floor.dirt", "tree", "floor.grass", "wall.stone"],
+    ["wall.stone", "wall.stone", "wall.stone", "tree"],
+  ];
+  const map = { w: 4, h: 3, tiles };
+  assert.equal(groundAt(catalog, map, 1, 1), "floor.dirt");
+  assert.equal(groundAt(catalog, map, 3, 2), "floor.grass", "the only walkable neighbour");
+  const walled = { w: 2, h: 2, tiles: [["wall.stone", "tree"], ["wall.stone", "wall.stone"]] };
+  assert.equal(groundAt(catalog, walled, 1, 0), null);
 });

@@ -6,6 +6,7 @@
 // Finer art (catalog tileSize 64) loads at a higher resolution, so a 2x screen shows every pixel.
 import { Application, Assets, Container, Graphics, Rectangle, RenderTexture, Sprite, Text, Texture, TextureSource } from "/vendor/pixi.mjs";
 import { findPath } from "./boardPath.js";
+import { groundAt } from "./boardGround.js";
 import { createDitherFilter } from "./boardDither.js";
 
 const STEP_SECONDS = 0.17; // hop: one tile of walking
@@ -135,9 +136,12 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look, m
       for (let x = 0; x < map.w; x++) {
         const tile = catalog.tiles[map.tiles[y][x]];
         if (!tile) continue;
-        const sprite = new Sprite(Texture.from(tile.files[cellHash(x, y) % tile.files.length]));
-        sprite.position.set(x * T, y * T);
-        floor.addChild(sprite);
+        const ground = !tile.walkable && catalog.tiles[groundAt(catalog, map, x, y)];
+        for (const art of ground ? [ground, tile] : [tile]) {
+          const sprite = new Sprite(Texture.from(art.files[cellHash(x, y) % art.files.length]));
+          sprite.position.set(x * T, y * T);
+          floor.addChild(sprite);
+        }
       }
     }
   }

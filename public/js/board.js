@@ -1,6 +1,8 @@
 // Draws the current map: tile variants, animated props, sprites with walk
 // animation and shadows, HP bars, stepped torchlight, name tags, the selected
 // target and a fade when the map changes. Clicking a character selects it.
+import { groundAt } from "./boardGround.js";
+
 const WALK_SPEED_TILES_PER_SECOND = 6;
 const FADE_SPEED = 1.6;
 const MAX_NAME_TAG_LENGTH = 10;
@@ -41,7 +43,10 @@ export function createBoard(canvas, catalog, { onSelectSprite }) {
     for (let y = 0; y < map.h; y++) {
       for (let x = 0; x < map.w; x++) {
         const tile = catalog.tiles[map.tiles[y][x]];
-        if (tile) drawTile(tile.files[cellHash(x, y) % tile.files.length], x, y);
+        if (!tile) continue;
+        const ground = !tile.walkable && catalog.tiles[groundAt(catalog, map, x, y)];
+        if (ground) drawTile(ground.files[cellHash(x, y) % ground.files.length], x, y);
+        drawTile(tile.files[cellHash(x, y) % tile.files.length], x, y);
       }
     }
   }
