@@ -7,9 +7,9 @@ The narrator draws every place on the board and reads the story aloud.
 
 ## Watch a game
 
-https://github.com/user-attachments/assets/cf7b27f2-440a-4625-8bb6-4ffec92930e0
+https://github.com/user-attachments/assets/4f44b493-0094-4280-9d5e-cf3e688000f3
 
-A 79-second game with sound: character creation, the opening scene, the spoken story with its highlight, one round, and a fight.
+A full game with sound (4 minutes 22 seconds): character creation, the opening scene, the spoken story with its highlight, four rounds with a spell and a fight, the board looks, and the glide walk.
 The waits for the AI turns are sped up in the video.
 
 ## Learn the rules
