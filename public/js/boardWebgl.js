@@ -2,7 +2,8 @@
 // tile by tile around walls with a hop, breathe while idle, lunge, flinch and fall
 // in combat, and act out the motions the narrator gives each story beat.
 // Light is a soft light map multiplied over the world, with flickering flames.
-// World units are tile pixels; the world is scaled by a whole number to fit.
+// A tile is 32 world units; the world is scaled by a whole number to fit.
+// Finer art (catalog tileSize 64) loads at a higher resolution, so a 2x screen shows every pixel.
 import { Application, Assets, Container, Graphics, Rectangle, RenderTexture, Sprite, Text, Texture, TextureSource } from "/vendor/pixi.mjs";
 import { findPath } from "./boardPath.js";
 import { createDitherFilter } from "./boardDither.js";
@@ -69,9 +70,10 @@ export async function createWebglBoard(frame, catalog, { onSelectSprite, look, m
     ...Object.values(catalog.props).flatMap((p) => p.files),
     ...Object.values(catalog.sprites).map((s) => s.file),
   ];
+  const T = 32;
   // Absolute URLs, so loading does not depend on the page path; the catalog path stays the name.
-  await Assets.load(files.map((file) => ({ alias: file, src: new URL(file, document.baseURI).href })));
-  const T = catalog.tileSize;
+  const resolution = catalog.tileSize / T;
+  await Assets.load(files.map((file) => ({ alias: file, src: new URL(file, document.baseURI).href, data: { resolution } })));
   const radial = radialTexture();
 
   // ---- layers ----

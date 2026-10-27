@@ -14,7 +14,8 @@ const cellHash = (x, y) => (Math.imul(x + 1, 73856093) ^ Math.imul(y + 1, 193496
 
 export function createBoard(canvas, catalog, { onSelectSprite }) {
   const context = canvas.getContext("2d");
-  const tileSize = catalog.tileSize;
+  const tileSize = 32; // drawing units per tile
+  const artScale = catalog.tileSize / tileSize; // canvas pixels per unit, so finer art keeps its detail
   const lightCell = tileSize / 2;
   const images = {};
   const shownPositions = {}; // sprite id -> animated {x, y}
@@ -186,18 +187,21 @@ export function createBoard(canvas, catalog, { onSelectSprite }) {
   function fitToFrame() {
     if (!map) return;
     const frame = canvas.parentElement;
-    const scale = Math.floor(Math.min(frame.clientWidth / canvas.width, frame.clientHeight / canvas.height));
-    canvas.style.width = scale >= 1 ? `${canvas.width * scale}px` : "";
-    canvas.style.height = scale >= 1 ? `${canvas.height * scale}px` : "";
+    const width = canvas.width / artScale;
+    const height = canvas.height / artScale;
+    const scale = Math.floor(Math.min(frame.clientWidth / width, frame.clientHeight / height));
+    canvas.style.width = scale >= 1 ? `${width * scale}px` : "";
+    canvas.style.height = scale >= 1 ? `${height * scale}px` : "";
   }
 
   function resizeToMap() {
     const width = map.w * tileSize;
     const height = map.h * tileSize;
     // Resizing a canvas reallocates it, so only do it when the size really changes.
-    if (canvas.width === width && canvas.height === height) return;
-    canvas.width = width;
-    canvas.height = height;
+    if (canvas.width === width * artScale && canvas.height === height * artScale) return;
+    canvas.width = width * artScale;
+    canvas.height = height * artScale;
+    context.setTransform(artScale, 0, 0, artScale, 0, 0);
     context.imageSmoothingEnabled = false;
     fitToFrame();
   }
