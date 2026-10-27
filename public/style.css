@@ -69,10 +69,11 @@ body {
 
 /* Side panel: quest, story log and action bar */
 #side-panel { width: 340px; display: flex; flex-direction: column; border-left: 2px solid var(--border); }
-#panel-header { display: flex; align-items: center; border-bottom: 2px solid var(--border); }
-#map-name { flex: 1; padding: 10px 12px; color: var(--gold); font-weight: bold; }
-#board-look, #board-motion { margin-right: 6px; padding: 2px 4px; font: inherit; font-size: 11px; color: var(--muted); cursor: pointer; background: var(--input); border: 1px solid var(--border); }
-#speech-toggle { margin-right: 8px; padding: 2px 6px; font-size: 14px; cursor: pointer; background: var(--input); border: 1px solid var(--border); }
+/* The map name takes its own line when the board pickers need the width. */
+#panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 8px 8px 0; border-bottom: 2px solid var(--border); }
+#map-name { flex: 1 1 100%; padding: 10px 12px 0; color: var(--gold); font-weight: bold; }
+#board-look, #board-motion { padding: 2px 4px; font: inherit; font-size: 11px; color: var(--muted); cursor: pointer; background: var(--input); border: 1px solid var(--border); }
+#speech-toggle { padding: 2px 6px; font-size: 14px; cursor: pointer; background: var(--input); border: 1px solid var(--border); }
 #objective { padding: 6px 12px; font-size: 12px; color: #e8b96a; border-bottom: 1px solid var(--border); }
 #objective:empty { display: none; }
 #help { font-size: 11px; border-bottom: 1px solid var(--border); }
