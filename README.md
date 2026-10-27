@@ -58,7 +58,7 @@ A URL can also choose them: `http://localhost:8420/?look=duotone&motion=glide`.
 
 A 67-second video shows the whole setup, with sound:
 
-https://github.com/user-attachments/assets/00887afb-d882-412f-b845-4d0a941ddd16
+https://github.com/user-attachments/assets/b100a09b-5d9a-4589-b772-55ca795e0785
 
 - Node.js 24 or later (it runs TypeScript directly).
 - Claude Code, logged in on this machine (`claude auth login`).

@@ -22,7 +22,7 @@ A narrated walkthrough (2 minutes 42 seconds): the table, a round, d20 checks, a
 
 Watch the setup, with sound (67 seconds):
 
-https://github.com/user-attachments/assets/00887afb-d882-412f-b845-4d0a941ddd16
+https://github.com/user-attachments/assets/b100a09b-5d9a-4589-b772-55ca795e0785
 
 1. Install Node.js 24 or later.
 2. Log in to Claude Code on this computer: run `claude auth login`.
