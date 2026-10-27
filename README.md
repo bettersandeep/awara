@@ -6,7 +6,7 @@ Claude agents play your three companions, and one more Claude agent is the narra
 
 Repository: https://github.com/bettersandeep/awara
 
-![A silent 17-second preview of play: the narrator builds the map, the companions decide, and the engine rolls the dice](docs/video/preview.gif)
+![A silent 18-second preview of play: the map opens, the hero walks, a magic missile flies, and the board switches to the duotone and palette looks](docs/video/preview.gif)
 
 New players: watch the full game with sound (79 seconds) here:
 
