@@ -159,6 +159,8 @@ The voice runs on your computer, so the speech can arrive a few seconds after th
 
 ## Board look
 
+![The same hall in four board looks: smooth, dithered light, duotone and palette](screenshots/07-board-looks.png)
+
 The list next to the speaker button in the side panel picks how the board looks.
 The game continues when you change it, and the browser remembers your choice.
 
