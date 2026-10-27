@@ -157,6 +157,30 @@ Hit points, AC and spell slots are on each seat card.
 
 The voice runs on your computer, so the speech can arrive a few seconds after the text.
 
+## Board look
+
+![The same hall in four board looks: smooth, dithered light, duotone and palette](screenshots/07-board-looks.png)
+
+The list next to the speaker button in the side panel picks how the board looks.
+The game continues when you change it, and the browser remembers your choice.
+
+- **✨ smooth** (default): characters walk tile by tile around walls, breathe while they wait, lunge and flinch in combat, and act out what the narrator describes as the voice speaks it.
+  Spells fly as glowing missiles, healing sparkles, and the light flickers softly.
+- **░ dithered light**: the same board, with light and darkness drawn as fine dot patterns.
+- **▓ duotone**: the whole board in two inks, cream on near-black, with dots that shimmer in bright light.
+- **▒ palette**: the whole board in a 16-colour retro palette.
+- **▦ canvas**: the first, simpler board, with stepped pixel light and no combat motion.
+  Switching to or from it reloads the page.
+
+The three dot looks use ordered (Bayer) dithering at one dot per screen pixel.
+
+The second list picks how characters walk on every look except canvas:
+
+- **🦘 hop** (default): one small hop per tile, with dust.
+- **〰 glide**: one smooth glide along the whole path, which starts slowly and settles at the end.
+
+You can also open a choice directly, for example http://localhost:8420/?look=duotone&motion=glide.
+
 ## Seats, models and voices
 
 ![A seat card: hit points, armor class, powers, model and voice](screenshots/06-seat-card.png)

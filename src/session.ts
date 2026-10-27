@@ -1,10 +1,11 @@
 // One game at the table: the world, the story log, the party and the round loop.
 // The session knows nothing about sockets. It sends plain messages to `broadcast`.
 import { makeRng } from "./rules/dice.ts";
-import { type Character, armorClass } from "./rules/character.ts";
+import { type Character, armorClass, lifeState } from "./rules/character.ts";
 import { type MapState, makeWorld } from "./scene/world.ts";
+import { characterOfSprite, effectForBoard, findSprite as findSpriteOnMap, resolveMotions } from "./boardEvents.ts";
 import { applySceneOps } from "./scene/sceneOps.ts";
-import { type NarrationBeat, type Narrator, type NarratorHost, createNarrator } from "./agents/narrator.ts";
+import { type BoardEffect, type NarrationBeat, type Narrator, type NarratorHost, createNarrator } from "./agents/narrator.ts";
 import { type CompanionAgent, type Declaration, createCompanionAgent } from "./agents/companion.ts";
 import { AGENT_MODELS, type AgentModel, NARRATOR_DEFAULT_MODEL, isAgentModel } from "./agents/runAgentTurn.ts";
 import { CLASS_BUILDS, PLAYER_ID, createParty, isCharacterClass } from "./party.ts";
@@ -30,8 +31,8 @@ type LogEntry = {
 const replaceLongDashes = (text: string) => text.replace(/\s*[\u2013\u2014]\s*/g, " - ");
 
 // The browser needs only what it shows, not the voice settings.
-const displayPiece = ({ text, speaker, dialogue, cue, emphasis, pronunciations, breakAfter }: SpeechPiece) =>
-  ({ text, speaker, dialogue, cue, emphasis, pronunciations, breakAfter });
+const displayPiece = ({ text, speaker, dialogue, cue, emphasis, pronunciations, breakAfter, motions }: SpeechPiece) =>
+  ({ text, speaker, dialogue, cue, emphasis, pronunciations, breakAfter, motions });
 
 const NARRATOR_SEAT = "narrator";
 const MAX_NAME_LENGTH = 24;
@@ -70,8 +71,9 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
   // ---- story log -----------------------------------------------------------
 
-  const logMessage = (entry: LogEntry, logIndex: number): ServerMessage =>
-    ({ type: "log", ...entry, pieces: entry.pieces?.map(displayPiece), logIndex });
+  // `replay` marks history sent to a new browser, so the board does not act it out again.
+  const logMessage = (entry: LogEntry, logIndex: number, replay = false): ServerMessage =>
+    ({ type: "log", ...entry, pieces: entry.pieces?.map(displayPiece), logIndex, replay });
 
   // `seat` is whose seat glows while the line plays.
   function addLogEntry(entry: LogEntry, seat?: string) {
@@ -112,14 +114,24 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
     return npcVoices.get(key)!;
   }
 
-  function narrate(narrationBeats: NarrationBeat[]) {
+  const findSprite = (idOrName: string | undefined) => findSpriteOnMap(world.maps[world.currentMap], characters, idOrName);
+
+  function narrate(narrationBeats: NarrationBeat[]): string[] {
+    const skipped: string[] = [];
     const beats: Beat[] = narrationBeats.map((beat) => ({
       text: replaceLongDashes(beat.text), speaker: beat.speaker, voice: voiceForBeat(beat),
+      motions: resolveMotions(beat, findSprite, skipped),
     }));
     const text = beats
       .map((beat) => (beat.speaker ? `${beat.speaker}: "${stripVoiceCues(beat.text)}"` : stripVoiceCues(beat.text)))
       .join(" ");
     addLogEntry({ text, kind: "story", pieces: buildSpeechPieces(beats, pronunciations) }, NARRATOR_SEAT);
+    return skipped;
+  }
+
+  // Rule results for the board, with character ids turned into sprite ids.
+  function effect(boardEffect: BoardEffect) {
+    broadcast(effectForBoard(boardEffect, (characterId) => findSprite(characterId)?.id));
   }
 
   function describeEvent(entry: LogEntry): string {
@@ -137,21 +149,22 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
 
   // ---- messages for the browser --------------------------------------------
 
-  // Hit points as a fraction of max hp, for each sprite that is a character.
-  // The narrator may give a sprite another id than its character, so names match too.
-  function healthOfSprites(map: MapState): Record<string, number> {
+  // Hit points as a fraction of max hp, and the life state, for each sprite that is a character.
+  function vitalsOfSprites(map: MapState) {
     const health: Record<string, number> = {};
+    const states: Record<string, string> = {};
     for (const sprite of map.sprites) {
-      const character = characters[sprite.id]
-        ?? Object.values(characters).find((c) => sprite.name && c.name.toLowerCase() === sprite.name.toLowerCase());
-      if (character) health[sprite.id] = Math.max(0, character.hp) / character.maxHp;
+      const character = characterOfSprite(sprite, characters);
+      if (!character) continue;
+      health[sprite.id] = Math.max(0, character.hp) / character.maxHp;
+      states[sprite.id] = lifeState(character);
     }
-    return health;
+    return { health, states };
   }
 
   function worldMessage(): ServerMessage {
     const map = world.maps[world.currentMap];
-    return { type: "world", map: map ?? null, health: map ? healthOfSprites(map) : {} };
+    return { type: "world", map: map ?? null, ...(map ? vitalsOfSprites(map) : { health: {}, states: {} }) };
   }
 
   function partyMessage(): ServerMessage {
@@ -183,7 +196,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
   // Everything a newly connected browser needs to show the current game.
   function snapshotMessages(): ServerMessage[] {
     const messages: ServerMessage[] = [partyMessage(), worldMessage()];
-    storyLog.forEach((entry, logIndex) => messages.push(logMessage(entry, logIndex)));
+    storyLog.forEach((entry, logIndex) => messages.push(logMessage(entry, logIndex, true)));
     messages.push({ type: "busy", busy: roundInProgress });
     if (objective) messages.push({ type: "objective", text: objective });
     if (!narrator) messages.push(setupMessage());
@@ -317,6 +330,7 @@ export function createGameSession(broadcast: (message: ServerMessage) => void) {
       broadcast(worldMessage());
     },
     narrate,
+    effect,
     log,
     setObjective(text) {
       objective = text;

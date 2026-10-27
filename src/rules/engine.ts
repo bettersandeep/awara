@@ -85,7 +85,7 @@ export function heal(c: Character, amount: number) {
   c.hp = Math.min(c.maxHp, c.hp + amount);
 }
 
-export type SpellResult = { success: boolean; amount: number; log: string };
+export type SpellResult = { success: boolean; amount: number; log: string; missiles?: number };
 
 export function castSpell(rng: Rng, caster: Character, spell: Spell, target: Character): SpellResult {
   const fail = (reason: string) => ({ success: false, amount: 0, log: `${caster.name} ${reason}` });
@@ -100,7 +100,7 @@ export function castSpell(rng: Rng, caster: Character, spell: Spell, target: Cha
     for (let i = 0; i < missiles; i++) damage += roll(rng, 1, 4)[0] + 1;
     applyDamage(target, damage);
     return {
-      success: true, amount: damage,
+      success: true, amount: damage, missiles,
       log: `${caster.name} casts magic missile: ${missiles} missile(s), ${damage} damage (${target.name} ${target.hp}hp, ${lifeState(target)})`,
     };
   }

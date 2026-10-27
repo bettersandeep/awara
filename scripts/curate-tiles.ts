@@ -3,6 +3,7 @@
 // public/catalog.json.
 // Source: https://opengameart.org/sites/default/files/crawl-tiles%20Oct-5-2010.zip
 // Usage: node scripts/curate-tiles.ts <path to the extracted crawl-tiles folder>
+// Then run scripts/detail-tiles.ts, which doubles every file to 64 pixels with more detail.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { crc32, deflateSync } from "node:zlib";

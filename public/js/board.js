@@ -1,6 +1,8 @@
 // Draws the current map: tile variants, animated props, sprites with walk
 // animation and shadows, HP bars, stepped torchlight, name tags, the selected
 // target and a fade when the map changes. Clicking a character selects it.
+import { groundAt } from "./boardGround.js";
+
 const WALK_SPEED_TILES_PER_SECOND = 6;
 const FADE_SPEED = 1.6;
 const MAX_NAME_TAG_LENGTH = 10;
@@ -14,7 +16,8 @@ const cellHash = (x, y) => (Math.imul(x + 1, 73856093) ^ Math.imul(y + 1, 193496
 
 export function createBoard(canvas, catalog, { onSelectSprite }) {
   const context = canvas.getContext("2d");
-  const tileSize = catalog.tileSize;
+  const tileSize = 32; // drawing units per tile
+  const artScale = catalog.tileSize / tileSize; // canvas pixels per unit, so finer art keeps its detail
   const lightCell = tileSize / 2;
   const images = {};
   const shownPositions = {}; // sprite id -> animated {x, y}
@@ -40,7 +43,10 @@ export function createBoard(canvas, catalog, { onSelectSprite }) {
     for (let y = 0; y < map.h; y++) {
       for (let x = 0; x < map.w; x++) {
         const tile = catalog.tiles[map.tiles[y][x]];
-        if (tile) drawTile(tile.files[cellHash(x, y) % tile.files.length], x, y);
+        if (!tile) continue;
+        const ground = !tile.walkable && catalog.tiles[groundAt(catalog, map, x, y)];
+        if (ground) drawTile(ground.files[cellHash(x, y) % ground.files.length], x, y);
+        drawTile(tile.files[cellHash(x, y) % tile.files.length], x, y);
       }
     }
   }
@@ -186,18 +192,21 @@ export function createBoard(canvas, catalog, { onSelectSprite }) {
   function fitToFrame() {
     if (!map) return;
     const frame = canvas.parentElement;
-    const scale = Math.floor(Math.min(frame.clientWidth / canvas.width, frame.clientHeight / canvas.height));
-    canvas.style.width = scale >= 1 ? `${canvas.width * scale}px` : "";
-    canvas.style.height = scale >= 1 ? `${canvas.height * scale}px` : "";
+    const width = canvas.width / artScale;
+    const height = canvas.height / artScale;
+    const scale = Math.floor(Math.min(frame.clientWidth / width, frame.clientHeight / height));
+    canvas.style.width = scale >= 1 ? `${width * scale}px` : "";
+    canvas.style.height = scale >= 1 ? `${height * scale}px` : "";
   }
 
   function resizeToMap() {
     const width = map.w * tileSize;
     const height = map.h * tileSize;
     // Resizing a canvas reallocates it, so only do it when the size really changes.
-    if (canvas.width === width && canvas.height === height) return;
-    canvas.width = width;
-    canvas.height = height;
+    if (canvas.width === width * artScale && canvas.height === height * artScale) return;
+    canvas.width = width * artScale;
+    canvas.height = height * artScale;
+    context.setTransform(artScale, 0, 0, artScale, 0, 0);
     context.imageSmoothingEnabled = false;
     fitToFrame();
   }

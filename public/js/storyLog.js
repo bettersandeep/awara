@@ -59,7 +59,7 @@ function renderPieces(line, pieces) {
   });
 }
 
-export function createStoryLog(container, { nameOf, onReplay }) {
+export function createStoryLog(container, { nameOf, onReplay, onPieceSpoken }) {
   const lines = []; // log index -> { element, pieceSpans, audioId, timings }
   const lineByAudioId = new Map();
   let highlighted = null;
@@ -95,7 +95,7 @@ export function createStoryLog(container, { nameOf, onReplay }) {
       } else {
         element.append(entry.text);
       }
-      lines[entry.logIndex] = { element, pieceSpans };
+      lines[entry.logIndex] = { element, pieceSpans, logIndex: entry.logIndex };
       container.appendChild(element);
       if (entry.audioId !== undefined) attachAudio(entry.logIndex, entry.audioId, entry.timings, entry.speaker ?? "narrator");
       container.scrollTop = container.scrollHeight;
@@ -107,12 +107,14 @@ export function createStoryLog(container, { nameOf, onReplay }) {
     showSpokenPosition(audioId, seconds) {
       const line = lineByAudioId.get(audioId);
       let current = null;
+      let index = -1;
       if (line && seconds !== null) {
         // During a pause the piece just spoken stays lit.
-        const index = line.timings.findLastIndex((timing) => timing.start <= seconds);
+        index = line.timings.findLastIndex((timing) => timing.start <= seconds);
         current = line.pieceSpans[index] ?? null;
       }
       if (current === highlighted) return;
+      if (current) onPieceSpoken?.(line.logIndex, index);
       highlighted?.classList.remove("now-speaking");
       current?.classList.add("now-speaking");
       highlighted = current;

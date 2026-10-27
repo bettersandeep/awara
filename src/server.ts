@@ -12,11 +12,16 @@ const PORT = 8420;
 const HOST = "127.0.0.1";
 const ALLOWED_ORIGINS = [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
 const PUBLIC_DIR = resolve(import.meta.dirname, "..", "public");
+// Browser libraries come from node_modules, so package.json pins their versions.
+const VENDOR_FILES: Record<string, string> = {
+  "/vendor/pixi.mjs": resolve(import.meta.dirname, "..", "node_modules", "pixi.js", "dist", "pixi.min.mjs"),
+};
 
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css",
   ".js": "text/javascript",
+  ".mjs": "text/javascript",
   ".json": "application/json",
   ".png": "image/png",
 };
@@ -28,13 +33,15 @@ function serveSpeechClip(response: ServerResponse, clipId: number) {
 }
 
 async function serveStaticFile(response: ServerResponse, urlPath: string) {
+  const vendorFile = Object.hasOwn(VENDOR_FILES, urlPath) ? VENDOR_FILES[urlPath] : undefined;
   let filePath: string;
   try {
-    filePath = resolve(PUBLIC_DIR, `.${decodeURIComponent(urlPath)}`);
+    filePath = vendorFile ?? resolve(PUBLIC_DIR, `.${decodeURIComponent(urlPath)}`);
   } catch {
     return response.writeHead(400).end();
   }
-  if (!filePath.startsWith(PUBLIC_DIR + sep)) return response.writeHead(403).end();
+  // Vendor files live outside public on purpose; every other path must stay inside it.
+  if (!vendorFile && !filePath.startsWith(PUBLIC_DIR + sep)) return response.writeHead(403).end();
   try {
     const body = await readFile(filePath);
     // No ETag or Last-Modified is sent, so the browser must revalidate on every load.
